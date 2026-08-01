@@ -1,0 +1,6 @@
+.pio/
+.vscode/
+*.bin
+relay-server/.venv/
+relay-server/.env
+relay-server/__pycache__/
