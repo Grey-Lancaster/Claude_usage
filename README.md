@@ -64,6 +64,11 @@ mapping lives in each variant's `platformio.ini`.
 
 ## Build
 
+Most people don't need this section - use the
+[flash page](https://grey-lancaster.github.io/Claude_usage/flash.html) at
+the top of this README instead. This is for building from source (making
+your own changes, or just preferring PlatformIO over a browser flasher).
+
 Each variant is self-contained - `cd` into it and `pio run`, no manual
 file copying:
 
