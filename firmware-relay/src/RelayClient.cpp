@@ -41,10 +41,13 @@ bool fetch(const String &hostPort, UsageDashboard::Snapshot &out) {
     return false;
   }
 
+  // relay-server sends bare durations (e.g. "4h 37m") - this module owns
+  // building the full sub-label text, same contract as ClaudeUsageClient
+  // in firmware-direct (see UsageDashboard.h's Snapshot comments).
   out.sessionPercent = doc["session_percent"] | 0;
-  out.sessionResetsIn = (const char *)(doc["session_resets_in"] | "?");
+  out.sessionResetsIn = "Resets in " + String((const char *)(doc["session_resets_in"] | "?"));
   out.weeklyPercent = doc["weekly_percent"] | 0;
-  out.weeklyResetsIn = (const char *)(doc["weekly_resets_in"] | "?");
+  out.weeklyResetsIn = "Resets in " + String((const char *)(doc["weekly_resets_in"] | "?"));
   out.creditsEnabled = doc["credits_enabled"] | false;
   out.creditsUsedMinor = doc["credits_used_minor"] | 0;
   out.creditsLimitMinor = doc["credits_limit_minor"] | 0;

@@ -17,7 +17,9 @@ GET https://claude.ai/api/organizations/<ORG_ID>/usage
 ```
 
 authenticated with your browser's session cookie, found by watching
-DevTools > Network while reloading Settings > Usage. It's **undocumented
+DevTools > Network while reloading Settings > Usage - see
+[`docs/cookie-guide.md`](docs/cookie-guide.md) for the illustrated,
+click-by-click version of that dig. It's **undocumented
 and unofficial** - Anthropic could change or remove it without notice,
 and this isn't a rate-limited public API meant for polling, which is why
 both variants below poll conservatively (5 minutes).

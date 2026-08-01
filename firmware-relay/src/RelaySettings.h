@@ -2,8 +2,9 @@
 // entry is fine here since, unlike a session cookie, this value is short.
 #pragma once
 
-#include <lvgl.h>
+#include <Arduino.h>
 #include <functional>
+#include <lvgl.h>
 
 namespace RelaySettings {
 

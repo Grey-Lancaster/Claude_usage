@@ -5,7 +5,7 @@
 //
 // Plain HTTP, no auth beyond the passphrase itself - anyone on your LAN
 // can load the page, but without the right passphrase all they can do is
-// guess (rate-limited only by PBKDF2's ~100k-round cost per attempt) or
+// guess (rate-limited only by PBKDF2's ~20k-round cost per attempt) or
 // wipe the stored config via Reset, never read the cookie. The one-time
 // act of typing the cookie/passphrase into this page does cross your LAN
 // as plaintext HTTP, same caveat as any admin page on a device this
@@ -13,6 +13,7 @@
 // it.
 #pragma once
 
+#include <Arduino.h>
 #include <functional>
 
 namespace ClaudeSetupServer {
@@ -28,5 +29,18 @@ void handleClient();
 // just became available in RAM) - the host app hooks this to trigger an
 // immediate poll instead of waiting for the next scheduled one.
 void setOnUnlocked(std::function<void()> cb);
+
+// Fires after a successful timezone save (from either the initial setup
+// form or the standalone "Save timezone" form) with the new IANA
+// location string.
+void setOnTimezoneChanged(std::function<void(const String &)> cb);
+
+// Records the outcome of the most recent usage fetch, so the "Unlocked"
+// page can show what's actually happening instead of a hardcoded "polling
+// normally" that stayed put even while every fetch was failing (e.g. an
+// expired cookie) - the device's own screen already surfaced that
+// correctly, this page didn't. Call after every fetch attempt, success or
+// failure; `detail` is ignored when `ok` is true.
+void setLastFetchStatus(bool ok, const String &detail);
 
 } // namespace ClaudeSetupServer

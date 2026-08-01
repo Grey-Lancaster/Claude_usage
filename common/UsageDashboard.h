@@ -16,10 +16,15 @@ struct Snapshot {
   String error;         // set (and valid left false) when a fetch fails
 
   int sessionPercent = 0;
-  String sessionResetsIn;  // pre-formatted, e.g. "4h 37m" - this module never touches time
+  // Full sub-label text, not just a bare value - e.g. "Resets in 4h 37m"
+  // for a countdown or "Resets Thursday 4PM" for a clock time. This
+  // module never touches time/timezones itself, so it can't supply the
+  // right connector word for whichever style the fetch client picked;
+  // each Snapshot producer builds the complete phrase.
+  String sessionResetsIn;
 
   int weeklyPercent = 0;
-  String weeklyResetsIn;
+  String weeklyResetsIn;  // same contract as sessionResetsIn above
 
   bool creditsEnabled = false;
   long creditsUsedMinor = 0;   // smallest currency unit (e.g. cents)
@@ -42,5 +47,12 @@ void setStatusLine(const String &text);
 
 // Fires when the user taps the settings gear (top-right).
 void setOnSettingsClicked(std::function<void()> cb);
+
+// Fires when the user taps anywhere else on the dashboard (background,
+// meters) - a manual "refresh now" gesture instead of waiting for the
+// next scheduled poll. The gear button's own tap keeps opening settings
+// only, not this - LVGL dispatches a tap to the deepest clickable object
+// under it, and the gear is its own clickable object.
+void setOnBackgroundClicked(std::function<void()> cb);
 
 } // namespace UsageDashboard

@@ -4,3 +4,4 @@
 relay-server/.venv/
 relay-server/.env
 relay-server/__pycache__/
+cookie-refresh/__pycache__/

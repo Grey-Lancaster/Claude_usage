@@ -13,6 +13,7 @@
 // different board.
 
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <SPI.h>
 #include <TFT_eSPI.h>
 #include <WiFi.h>
@@ -24,6 +25,10 @@
 #include "RelayConfig.h"
 #include "RelaySettings.h"
 #include "UsageDashboard.h"
+
+#ifndef OTA_PASSWORD
+#define OTA_PASSWORD "changeme"  // override in platformio.ini before deploying - see README
+#endif
 
 #define XPT2046_IRQ 36
 #define XPT2046_MOSI 32
@@ -87,6 +92,18 @@ static void pollUsage(bool force) {
   if (ok) {
     UsageDashboard::setStatusLine("Updated " + String(now / 1000) + "s uptime");
   }
+}
+
+// pollUsage(true) skips the normal throttle entirely - the tap-to-refresh
+// gesture gets its own short cooldown so mashing the screen can't spam
+// the relay's tiny HTTP server (it won't have newer data anyway between
+// its own poll cycles, so rapid re-fetches are just wasted round trips).
+static void manualRefresh() {
+  static unsigned long lastManualMs = 0;
+  unsigned long now = millis();
+  if (now - lastManualMs < 3000) return;
+  lastManualMs = now;
+  pollUsage(true);
 }
 
 static void closeSettingsOverlay() {
@@ -163,6 +180,17 @@ static void onWifiConnected(const String &ip) {
     dashboardReady = true;
     UsageDashboard::build(lv_scr_act());
     UsageDashboard::setOnSettingsClicked(openSettingsOverlay);
+    UsageDashboard::setOnBackgroundClicked(manualRefresh);
+
+    // Network OTA - "pio run -e cyd_ota -t upload" instead of USB once the
+    // device is on Wi-Fi. Doesn't touch the partition table (already
+    // OTA-shaped via min_spiffs.csv), so this can't shift NVS and forget
+    // saved Wi-Fi/relay-address data the way flashing a build with a
+    // *different* partition table would. Set up before the early return
+    // below so it's armed even before a relay address is configured.
+    ArduinoOTA.setHostname("claudeusage-relay");
+    ArduinoOTA.setPassword(OTA_PASSWORD);
+    ArduinoOTA.begin();
 
     if (!RelayConfig::isConfigured()) {
       RelaySettings::open(lv_scr_act(), [](const String &) { pollUsage(true); });
@@ -209,6 +237,9 @@ void setup() {
 void loop() {
   lv_timer_handler();
   TouchWifiProvisioner::loop();
-  if (TouchWifiProvisioner::isConnected()) pollUsage(false);
+  if (TouchWifiProvisioner::isConnected()) {
+    ArduinoOTA.handle();
+    pollUsage(false);
+  }
   delay(5);
 }

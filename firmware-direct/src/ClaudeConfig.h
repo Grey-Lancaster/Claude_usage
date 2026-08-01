@@ -25,14 +25,19 @@ bool isProvisioned();
 // into RAM this boot.
 bool isUnlocked();
 
-String orgId();    // plaintext - not sensitive on its own
-String cookie();   // only valid when isUnlocked()
+String orgId();      // plaintext - not sensitive on its own
+String cookie();     // only valid when isUnlocked()
+String timezone();   // IANA location (e.g. "America/New_York"), for display formatting only - not sensitive
 
 // First-time setup, or a full replacement: encrypts `cookieVal` under a
-// key derived from `passphrase`, persists org id + ciphertext, and
-// immediately unlocks in RAM - no separate unlock step needed right
+// key derived from `passphrase`, persists org id + timezone + ciphertext,
+// and immediately unlocks in RAM - no separate unlock step needed right
 // after provisioning.
-void provision(const String &orgIdVal, const String &cookieVal, const String &passphrase);
+void provision(const String &orgIdVal, const String &cookieVal, const String &passphrase, const String &timezoneVal);
+
+// Changeable independently of the cookie/passphrase - no re-encryption
+// involved, it's not a secret.
+void setTimezone(const String &timezoneVal);
 
 // Attempts to decrypt the stored cookie with `passphrase`. Returns false
 // (device stays locked) on a wrong passphrase or missing data - AES-GCM's

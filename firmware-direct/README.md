@@ -55,6 +55,31 @@ pio run -t upload
 pio device monitor
 ```
 
+## Updating firmware over Wi-Fi
+
+Two ways, both need the device already running a build with this feature
+(i.e. one USB flash to get here first):
+
+- **Browser upload (recommended on Windows)**: visit
+  `http://claudeusage.local/update`, sign in with username `admin` and
+  the OTA password (see below), pick the `firmware.bin` from
+  `pio run` (not the merged `- Bootable` image - that includes the
+  bootloader/partitions, which this route doesn't touch), and upload.
+  Reuses the same web server already running for setup, so it isn't
+  affected by the Windows Firewall issue below.
+- **`pio run -e cyd_ota -t upload`** (ArduinoOTA/espota protocol): if
+  nothing happens past "Authenticating...OK", Windows Firewall is almost
+  certainly silently blocking the callback connection `espota` needs.
+  Run this once in an **elevated** PowerShell:
+  ```powershell
+  New-NetFirewallRule -DisplayName "PlatformIO OTA (python)" -Direction Inbound -Program "$env:USERPROFILE\.platformio\penv\Scripts\python.exe" -Action Allow -Protocol TCP
+  ```
+
+Either way, **change the default OTA password first** - it's `changeme`
+via `-DOTA_PASSWORD` in `platformio.ini`'s `[env:cyd_ota]` section
+(`build_flags`) and `upload_flags`' `--auth=`. Left as-is, anyone on your
+LAN who finds the device can push arbitrary firmware to it.
+
 ## Notes
 
 - Polls every 5 minutes (`POLL_INTERVAL_MS` in `src/main.cpp`) -

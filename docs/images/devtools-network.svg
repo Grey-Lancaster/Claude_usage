@@ -1,0 +1,68 @@
+<svg viewBox="0 0 720 460" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+  <rect width="720" height="460" fill="#ffffff"/>
+
+  <!-- Browser window -->
+  <rect x="10" y="10" width="700" height="440" rx="8" fill="#f3f4f6" stroke="#d1d5db"/>
+  <!-- Title bar -->
+  <rect x="10" y="10" width="700" height="34" rx="8" fill="#e5e7eb"/>
+  <circle cx="28" cy="27" r="5" fill="#f87171"/>
+  <circle cx="46" cy="27" r="5" fill="#fbbf24"/>
+  <circle cx="64" cy="27" r="5" fill="#34d399"/>
+  <!-- Address bar -->
+  <rect x="90" y="17" width="420" height="20" rx="10" fill="#ffffff" stroke="#d1d5db"/>
+  <text x="102" y="31" font-size="12" fill="#111827">claude.ai/settings/usage</text>
+
+  <!-- Callout 1: F12 -->
+  <circle cx="565" cy="27" r="11" fill="#ea580c"/>
+  <text x="565" y="31" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="bold">1</text>
+  <text x="583" y="31" font-size="12" fill="#111827">Press F12</text>
+
+  <!-- DevTools panel -->
+  <rect x="10" y="44" width="700" height="406" fill="#ffffff"/>
+
+  <!-- DevTools tab strip -->
+  <rect x="10" y="44" width="700" height="28" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="24" y="63" font-size="11" fill="#9ca3af">Elements</text>
+  <text x="92" y="63" font-size="11" fill="#9ca3af">Console</text>
+  <text x="152" y="63" font-size="11" fill="#9ca3af">Sources</text>
+  <rect x="205" y="46" width="66" height="24" fill="#dbeafe"/>
+  <text x="216" y="63" font-size="11" fill="#1d4ed8" font-weight="bold">Network</text>
+  <circle cx="290" cy="58" r="11" fill="#ea580c"/>
+  <text x="290" y="62" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="bold">2</text>
+  <text x="308" y="63" font-size="12" fill="#111827">Click Network, then reload the page</text>
+
+  <!-- Request table header -->
+  <rect x="10" y="72" width="700" height="24" fill="#f3f4f6" stroke="#e5e7eb"/>
+  <text x="24" y="88" font-size="10" fill="#6b7280">Name</text>
+  <text x="330" y="88" font-size="10" fill="#6b7280">Status</text>
+  <text x="410" y="88" font-size="10" fill="#6b7280">Type</text>
+  <text x="490" y="88" font-size="10" fill="#6b7280">Time</text>
+
+  <!-- Some plain rows -->
+  <text x="24" y="112" font-size="11" fill="#9ca3af">usage_settings.js</text>
+  <text x="330" y="112" font-size="11" fill="#9ca3af">200</text>
+  <text x="24" y="132" font-size="11" fill="#9ca3af">avatar.png</text>
+  <text x="330" y="132" font-size="11" fill="#9ca3af">200</text>
+
+  <!-- Highlighted target row -->
+  <rect x="12" y="142" width="696" height="24" fill="#fef3c7"/>
+  <text x="24" y="158" font-size="12" fill="#111827" font-weight="bold">usage</text>
+  <text x="330" y="158" font-size="11" fill="#111827">200</text>
+  <text x="410" y="158" font-size="11" fill="#111827">fetch</text>
+
+  <circle cx="662" cy="154" r="11" fill="#ea580c"/>
+  <text x="662" y="158" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="bold">3</text>
+
+  <text x="24" y="192" font-size="12" fill="#111827">Click that "usage" request. Its full URL (shown once selected) is:</text>
+  <rect x="24" y="204" width="660" height="26" rx="4" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="34" y="221" font-size="12" fill="#1e3a8a" font-family="Consolas,Menlo,monospace">/api/organizations/</text>
+  <text x="176" y="221" font-size="12" fill="#b45309" font-family="Consolas,Menlo,monospace" font-weight="bold">f24a3b8e-...-9d16</text>
+  <text x="345" y="221" font-size="12" fill="#1e3a8a" font-family="Consolas,Menlo,monospace">/usage</text>
+
+  <circle cx="260" cy="248" r="11" fill="#ea580c"/>
+  <text x="260" y="252" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="bold">4</text>
+  <text x="278" y="253" font-size="12" fill="#111827" font-weight="bold">That highlighted part is your Org ID - copy it.</text>
+
+  <text x="24" y="300" font-size="12" fill="#6b7280">Next: open the Headers tab for this same request to get your cookie -</text>
+  <text x="24" y="318" font-size="12" fill="#6b7280">see the second diagram.</text>
+</svg>

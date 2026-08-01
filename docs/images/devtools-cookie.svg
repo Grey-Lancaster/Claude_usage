@@ -1,0 +1,53 @@
+<svg viewBox="0 0 720 400" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif">
+  <rect width="720" height="400" fill="#ffffff"/>
+
+  <rect x="10" y="10" width="700" height="380" rx="8" fill="#f3f4f6" stroke="#d1d5db"/>
+  <rect x="10" y="10" width="700" height="34" rx="8" fill="#e5e7eb"/>
+  <circle cx="28" cy="27" r="5" fill="#f87171"/>
+  <circle cx="46" cy="27" r="5" fill="#fbbf24"/>
+  <circle cx="64" cy="27" r="5" fill="#34d399"/>
+  <text x="90" y="31" font-size="12" fill="#6b7280">DevTools - Network - usage (selected request)</text>
+
+  <rect x="10" y="44" width="700" height="346" fill="#ffffff"/>
+
+  <!-- Detail-pane sub-tab strip -->
+  <rect x="10" y="44" width="700" height="28" fill="#f9fafb" stroke="#e5e7eb"/>
+  <rect x="20" y="46" width="66" height="24" fill="#dbeafe"/>
+  <text x="32" y="63" font-size="11" fill="#1d4ed8" font-weight="bold">Headers</text>
+  <text x="96" y="63" font-size="11" fill="#9ca3af">Preview</text>
+  <text x="156" y="63" font-size="11" fill="#9ca3af">Response</text>
+  <text x="226" y="63" font-size="11" fill="#9ca3af">Timing</text>
+
+  <circle cx="360" cy="58" r="11" fill="#ea580c"/>
+  <text x="360" y="62" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="bold">1</text>
+  <text x="378" y="63" font-size="12" fill="#111827">Click Headers</text>
+
+  <!-- General section (collapsed feel) -->
+  <text x="24" y="94" font-size="11" fill="#6b7280" font-weight="bold">▾ General</text>
+  <text x="34" y="112" font-size="10" fill="#9ca3af">Request URL: https://claude.ai/api/organizations/.../usage</text>
+  <text x="34" y="128" font-size="10" fill="#9ca3af">Status Code: 200 OK</text>
+
+  <!-- Request Headers section -->
+  <text x="24" y="156" font-size="11" fill="#111827" font-weight="bold">▾ Request Headers</text>
+  <circle cx="150" cy="152" r="11" fill="#ea580c"/>
+  <text x="150" y="156" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="bold">2</text>
+  <text x="168" y="157" font-size="12" fill="#111827">Scroll down to Request Headers, expand it</text>
+
+  <text x="34" y="178" font-size="10" fill="#9ca3af">accept: */*</text>
+  <text x="34" y="194" font-size="10" fill="#9ca3af">anthropic-client-platform: web_claude_ai</text>
+
+  <!-- Highlighted cookie row -->
+  <rect x="12" y="204" width="696" height="46" fill="#fef3c7"/>
+  <text x="34" y="221" font-size="10" fill="#92400e" font-weight="bold">cookie:</text>
+  <text x="34" y="238" font-size="9.5" fill="#78350f" font-family="Consolas,Menlo,monospace">sessionKey=sk-ant-sid01-XXXX...; intercom-id=...; lastActiveOrg=...; ...</text>
+
+  <circle cx="686" cy="226" r="11" fill="#ea580c"/>
+  <text x="686" y="230" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="bold">3</text>
+
+  <text x="24" y="278" font-size="12" fill="#111827" font-weight="bold">Hover the cookie row, click the copy icon (or select the whole value)</text>
+  <text x="24" y="296" font-size="12" fill="#111827" font-weight="bold">to copy it - that entire string, not just sessionKey, is what you need.</text>
+
+  <rect x="24" y="316" width="672" height="50" rx="6" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="36" y="336" font-size="11" fill="#1e3a8a" font-weight="bold">You now have both values:</text>
+  <text x="36" y="354" font-size="11" fill="#1e3a8a">Org ID (from the URL) + Cookie (this whole header value)</text>
+</svg>

@@ -16,17 +16,31 @@
 // different board.
 
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <SPI.h>
 #include <TFT_eSPI.h>
 #include <WiFi.h>
 #include <XPT2046_Touchscreen.h>
+#include <ezTime.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <lvgl.h>  // version 8.3.11
 #include <TouchWifiProvisioner.h>
 
 #include "ClaudeConfig.h"
 #include "ClaudeSetupServer.h"
 #include "ClaudeUsageClient.h"
+#include "OtaPassword.h"
 #include "UsageDashboard.h"
+
+// waitForSync()/events() live in namespace ezt, not global scope.
+using namespace ezt;
+
+// Drives both the display's "resets in"-as-absolute-time formatting
+// (ClaudeUsageClient reads this via ezTime's default-timezone bounce-
+// through functions, set via setDefault() below) and is re-pointed live
+// when the timezone is changed from the setup page.
+Timezone myTZ;
 
 #define XPT2046_IRQ 36
 #define XPT2046_MOSI 32
@@ -143,6 +157,89 @@ static void openSettingsOverlay() {
   lv_obj_center(closeLabel);
 }
 
+// --- Background usage fetch ---------------------------------------------
+// ClaudeUsageClient::fetch() is a blocking HTTPS round trip (TLS handshake
+// + response can run into multiple seconds). Calling it straight from
+// pollUsage() used to block loop() - and with it lv_timer_handler() -  for
+// the whole fetch, freezing all rendering. Most visibly this ate the tap
+// ripple animation: manualRefresh() runs *inside* the same click-event
+// dispatch that spawned the ripple, so LVGL never got a chance to paint an
+// intermediate frame until the fetch finished, at which point real elapsed
+// time had already blown past the animation's 400ms and it jumped straight
+// to (or past) its end state. Less visibly, it also meant the whole
+// touchscreen stopped responding to anything for the same duration on
+// every periodic poll, not just manual refreshes.
+//
+// The network call now runs on its own FreeRTOS task so loop() keeps
+// calling lv_timer_handler() at its normal ~5ms cadence throughout. Only
+// plain data crosses task boundaries (org id/cookie one way, a Snapshot the
+// other), each copied inside a short critical section; LVGL itself is only
+// ever touched from the main task (the one running lv_timer_handler()).
+static portMUX_TYPE fetchMux = portMUX_INITIALIZER_UNLOCKED;
+static volatile bool fetchRequested = false;
+static volatile bool fetchBusy = false;
+static String pendingOrgId;
+static String pendingCookie;
+static volatile bool fetchResultReady = false;
+static UsageDashboard::Snapshot fetchResultSnap;
+static bool fetchResultOk = false;
+
+static void fetchTaskFn(void *) {
+  for (;;) {
+    bool go = false;
+    String orgId, cookie;
+
+    portENTER_CRITICAL(&fetchMux);
+    if (fetchRequested) {
+      go = true;
+      fetchRequested = false;
+      fetchBusy = true;
+      orgId = pendingOrgId;
+      cookie = pendingCookie;
+    }
+    portEXIT_CRITICAL(&fetchMux);
+
+    if (go) {
+      UsageDashboard::Snapshot snap;
+      bool ok = ClaudeUsageClient::fetch(orgId, cookie, snap);
+
+      portENTER_CRITICAL(&fetchMux);
+      fetchResultSnap = snap;
+      fetchResultOk = ok;
+      fetchResultReady = true;
+      fetchBusy = false;
+      portEXIT_CRITICAL(&fetchMux);
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+// Drains a completed background fetch, if any, onto the dashboard. Called
+// every loop() iteration - cheap (a flag check) when nothing's ready.
+static void checkFetchResult() {
+  bool ready = false;
+  UsageDashboard::Snapshot snap;
+  bool ok = false;
+
+  portENTER_CRITICAL(&fetchMux);
+  if (fetchResultReady) {
+    ready = true;
+    snap = fetchResultSnap;
+    ok = fetchResultOk;
+    fetchResultReady = false;
+  }
+  portEXIT_CRITICAL(&fetchMux);
+
+  if (!ready) return;
+  Serial.printf("[main] pollUsage: fetch ok=%d snap.valid=%d snap.error='%s'\n", ok, snap.valid, snap.error.c_str());
+  UsageDashboard::update(snap);
+  ClaudeSetupServer::setLastFetchStatus(ok, snap.error);
+  if (ok) {
+    UsageDashboard::setStatusLine("Updated " + String(millis() / 1000) + "s uptime");
+  }
+}
+
 static void pollUsage(bool force) {
   unsigned long now = millis();
   if (!force && now - lastPollMs < POLL_INTERVAL_MS) return;
@@ -156,18 +253,42 @@ static void pollUsage(bool force) {
     UsageDashboard::setStatusLine("Locked - visit http://claudeusage.local/ to unlock");
     return;
   }
+  if (fetchBusy || fetchRequested) return;  // one in flight/queued is enough
 
-  UsageDashboard::Snapshot snap;
-  bool ok = ClaudeUsageClient::fetch(ClaudeConfig::orgId(), ClaudeConfig::cookie(), snap);
-  UsageDashboard::update(snap);
-  if (ok) {
-    UsageDashboard::setStatusLine("Updated " + String(now / 1000) + "s uptime");
-  }
+  String orgId = ClaudeConfig::orgId();
+  String cookie = ClaudeConfig::cookie();
+  portENTER_CRITICAL(&fetchMux);
+  pendingOrgId = orgId;
+  pendingCookie = cookie;
+  fetchRequested = true;
+  portEXIT_CRITICAL(&fetchMux);
+}
+
+// pollUsage(true) skips the normal 5-minute throttle entirely - fine for
+// a one-off action like a successful unlock, but the tap-to-refresh
+// gesture needs its own separate, much shorter cooldown so mashing the
+// screen can't hammer an undocumented endpoint that isn't meant for
+// frequent polling.
+static void manualRefresh() {
+  static unsigned long lastManualMs = 0;
+  unsigned long now = millis();
+  if (now - lastManualMs < 3000) return;
+  lastManualMs = now;
+  pollUsage(true);
 }
 
 static void onWifiConnected(const String &ip) {
   Serial.printf("Wi-Fi connected, IP: %s\n", ip.c_str());
-  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+  // Blocks briefly (first connect only - already-synced time returns
+  // immediately on reconnects) so the very first pollUsage() below
+  // doesn't race ahead of NTP finishing. Without this, "resets in" shows
+  // "?" until the next scheduled poll - up to 5 minutes later - recomputes
+  // it with a now-valid clock. Also sets the system clock ezTime itself
+  // reads from, replacing a plain configTime() call - Iso8601::parseUtc()
+  // (mktime-based) and this all agree because nothing here ever moves the
+  // system TZ away from UTC0; only myTZ's own offset/DST rules, applied
+  // separately by ezTime when formatting, differ per zone.
+  waitForSync(5);
 
   // TouchWifiProvisioner fires this callback again after every reconnect,
   // not just the first connection - the dashboard and web server only
@@ -176,9 +297,28 @@ static void onWifiConnected(const String &ip) {
     dashboardReady = true;
     UsageDashboard::build(lv_scr_act());
     UsageDashboard::setOnSettingsClicked(openSettingsOverlay);
+    UsageDashboard::setOnBackgroundClicked(manualRefresh);
+
+    // POSIX rule string (e.g. "EST5EDT,M3.2.0,M11.1.0"), not an IANA
+    // name - setPosix() applies it fully offline. ezTime's own
+    // setLocation() looks simpler but resolves an IANA name via a UDP
+    // round-trip to ezTime's remote server, which measured unreliable on
+    // this network - silently left the clock stuck on UTC with no error.
+    myTZ.setPosix(ClaudeConfig::timezone());
+    myTZ.setDefault();
 
     ClaudeSetupServer::setOnUnlocked([]() { pollUsage(true); });
+    ClaudeSetupServer::setOnTimezoneChanged([](const String &tz) { myTZ.setPosix(tz); });
     ClaudeSetupServer::begin();
+
+    // Network OTA - "pio run -e cyd_ota -t upload" instead of USB once the
+    // device is on Wi-Fi. Doesn't touch the partition table (already
+    // OTA-shaped via min_spiffs.csv), so this can't shift NVS and forget
+    // saved Wi-Fi/account data the way flashing a build with a *different*
+    // partition table would.
+    ArduinoOTA.setHostname("claudeusage");
+    ArduinoOTA.setPassword(OTA_PASSWORD);
+    ArduinoOTA.begin();
   }
 
   pollUsage(true);
@@ -214,13 +354,21 @@ void setup() {
   lv_indev_drv_register(&indev_drv);
 
   TouchWifiProvisioner::begin(lv_scr_act(), "ClaudeUsage", onWifiConnected);
+
+  // Pinned to core 0 - Arduino's setup()/loop() (and therefore
+  // lv_timer_handler()) run as "loopTask" on core 1 by default, so this
+  // keeps the network fetch fully off the UI's core.
+  xTaskCreatePinnedToCore(fetchTaskFn, "usageFetch", 16384, nullptr, 1, nullptr, 0);
 }
 
 void loop() {
   lv_timer_handler();
+  checkFetchResult();
   TouchWifiProvisioner::loop();
   if (TouchWifiProvisioner::isConnected()) {
+    events();  // services ezTime's background NTP re-sync scheduling
     ClaudeSetupServer::handleClient();
+    ArduinoOTA.handle();
     pollUsage(false);
   }
   delay(5);

@@ -16,9 +16,12 @@ time_t parseUtc(const String &s) {
   t.tm_hour = hour;
   t.tm_min = minute;
   t.tm_sec = second;
-  // timegm (not mktime) - the fields above are already UTC, so this must
-  // not apply the device's local timezone.
-  time_t utc = timegm(&t);
+  // timegm isn't available in this toolchain's libc. mktime() normally
+  // isn't a substitute (it applies the local timezone), but neither
+  // firmware ever calls setenv("TZ", ...) / configTzTime() - both stay
+  // on the default UTC0 zone - so mktime() interpreting these UTC fields
+  // as "local" time lands on the same value timegm() would give.
+  time_t utc = mktime(&t);
 
   // Trailing offset, e.g. ".897964+00:00" or "Z". Every response observed
   // from claude.ai uses +00:00, but honor a non-zero offset if one ever
