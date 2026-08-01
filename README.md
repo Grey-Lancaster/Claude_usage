@@ -1,5 +1,9 @@
 # Claude_usage
 
+**[⚡ Flash it to your CYD now](https://grey-lancaster.github.io/Claude_usage/flash.html)** -
+one click from your browser, no toolchain to install. Just plug in the
+board over USB and go.
+
 A [Cheap Yellow Display](https://github.com/witnessmenow/ESP32-Cheap-Yellow-Display)
 (ESP32-2432S028R) dashboard showing your live Claude.ai plan usage: current
 session (5-hour) limit, weekly limit, and usage credits - the same numbers

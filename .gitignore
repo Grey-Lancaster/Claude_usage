@@ -1,6 +1,10 @@
 .pio/
 .vscode/
 *.bin
+# docs/firmware/**/*.bin are the actual payload the browser flash page
+# installs - the opposite of a build artifact nobody wants tracked, so
+# they're exempted from the blanket *.bin rule above.
+!docs/firmware/**/*.bin
 relay-server/.venv/
 relay-server/.env
 relay-server/__pycache__/
