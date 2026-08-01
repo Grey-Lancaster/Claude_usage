@@ -1,8 +1,14 @@
-// Org ID + session cookie, provisioned over USB serial rather than the
-// on-screen keyboard - a session cookie runs 100+ characters, which is
-// painful to peck out on a resistive touchscreen but trivial to paste
-// into a serial terminal. Persisted via Preferences, same mechanism
-// TouchWifiProvisioner uses for Wi-Fi credentials.
+// Encrypted-at-rest session cookie storage. The cookie is protected with
+// AES-256-GCM under a key derived (PBKDF2-HMAC-SHA256, see Kdf.h) from a
+// passphrase you choose at setup time via http://claudeusage.local/ (see
+// ClaudeSetupServer.h). That passphrase is never written to flash - only
+// held in RAM after a successful unlock. A flash dump therefore only
+// yields ciphertext; recovering the real cookie needs the passphrase
+// too.
+//
+// Consequence: the device starts locked after every reboot and needs
+// the passphrase re-entered before it can poll claude.ai again. That's
+// the point, not a bug - see the README.
 #pragma once
 
 #include <Arduino.h>
@@ -11,18 +17,30 @@ namespace ClaudeConfig {
 
 void begin();
 
-bool isConfigured();
-String orgId();
-String cookie();
+// True once an encrypted cookie has been stored, regardless of whether
+// it's unlocked yet this boot.
+bool isProvisioned();
 
-// Starts (or restarts) the "paste your org id, then your cookie" serial
-// prompt. Safe to call while already armed.
-void startSetup();
+// True once unlock() (or a fresh provision()) has decrypted the cookie
+// into RAM this boot.
+bool isUnlocked();
 
-// Call every loop() iteration - non-blocking line reader that drives the
-// setup prompt when armed. No-op otherwise.
-void pollSerial();
+String orgId();    // plaintext - not sensitive on its own
+String cookie();   // only valid when isUnlocked()
 
-void clear();
+// First-time setup, or a full replacement: encrypts `cookieVal` under a
+// key derived from `passphrase`, persists org id + ciphertext, and
+// immediately unlocks in RAM - no separate unlock step needed right
+// after provisioning.
+void provision(const String &orgIdVal, const String &cookieVal, const String &passphrase);
+
+// Attempts to decrypt the stored cookie with `passphrase`. Returns false
+// (device stays locked) on a wrong passphrase or missing data - AES-GCM's
+// authentication tag makes a wrong guess fail cleanly instead of
+// silently unlocking garbage.
+bool unlock(const String &passphrase);
+
+// Wipes everything: org id, ciphertext, and the in-RAM plaintext.
+void forget();
 
 } // namespace ClaudeConfig

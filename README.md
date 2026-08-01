@@ -32,11 +32,14 @@ that determines which variant to build:
 
 - **[`firmware-direct`](firmware-direct)** - the CYD holds the cookie
   itself and talks to claude.ai directly. Fully standalone, no PC
-  required. But a CYD's USB-serial chip makes flash dumping
-  (`esptool.py read_flash`) trivial for anyone who has the board in hand
-  for a few minutes - there's no flash encryption enabled here. Fine for
-  a device that stays on your desk; reconsider for one that could walk
-  off.
+  required. The cookie is stored encrypted (AES-256-GCM, key derived from
+  a passphrase you set at `http://claudeusage.local/`, never written to
+  flash) - a flash dump yields ciphertext, not the cookie. That's real
+  protection, not full-disk flash encryption (which this project
+  deliberately doesn't attempt - see that variant's README for why), and
+  it's not a substitute for good judgment: if the device is ever lost or
+  stolen, log out the session or change your claude.ai password regardless
+  of the encryption.
 - **[`firmware-relay`](firmware-relay)** + **[`relay-server`](relay-server)** -
   the cookie lives only in a small script on your PC
   ([`relay-server`](relay-server)), which re-serves a simplified summary

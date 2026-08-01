@@ -2,10 +2,13 @@
 //
 // Cheap Yellow Display (ESP32-2432S028R) dashboard showing your live
 // Claude.ai session/weekly plan-limit percentages and usage credits.
-// Talks straight to claude.ai over HTTPS using a copied-in session
-// cookie - see ../README.md for the security tradeoffs of that before
-// deploying this on a device that could walk off. If you'd rather keep
-// the cookie off the device entirely, use ../../firmware-relay instead.
+// Talks straight to claude.ai over HTTPS. The session cookie is stored
+// encrypted (AES-256-GCM, key derived from a passphrase you choose - see
+// ClaudeConfig.h) and set up via a tiny on-device web page at
+// http://claudeusage.local/ (see ClaudeSetupServer.h) rather than typed
+// into the on-screen keyboard. Read ../README.md before deploying this
+// on a device that could walk off - if you'd rather the cookie never
+// touch the device at all, use ../../firmware-relay instead.
 //
 // Display/touch bring-up below is copied from TouchWifiProvisioner's
 // CYD_BasicConnect example - that library never touches the display bus
@@ -21,6 +24,7 @@
 #include <TouchWifiProvisioner.h>
 
 #include "ClaudeConfig.h"
+#include "ClaudeSetupServer.h"
 #include "ClaudeUsageClient.h"
 #include "UsageDashboard.h"
 
@@ -82,10 +86,10 @@ static void onForgetWifiClicked(lv_event_t *e) {
   TouchWifiProvisioner::reset();
 }
 
-static void onReconfigureAccountClicked(lv_event_t *e) {
+static void onResetAccountClicked(lv_event_t *e) {
   closeSettingsOverlay();
-  ClaudeConfig::startSetup();
-  UsageDashboard::setStatusLine("Follow prompts on Serial (115200 baud)");
+  ClaudeConfig::forget();
+  UsageDashboard::setStatusLine("Not configured - visit http://claudeusage.local/");
 }
 
 static void onCloseSettingsClicked(lv_event_t *e) { closeSettingsOverlay(); }
@@ -110,6 +114,10 @@ static void openSettingsOverlay() {
   lv_label_set_text(title, "Settings");
   lv_obj_set_style_pad_top(title, 10, 0);
 
+  lv_obj_t *urlLabel = lv_label_create(settingsOverlay);
+  lv_obj_set_style_text_color(urlLabel, lv_color_hex(0x999999), 0);
+  lv_label_set_text(urlLabel, "Setup: http://claudeusage.local/");
+
   lv_obj_t *forgetBtn = lv_btn_create(settingsOverlay);
   lv_obj_set_size(forgetBtn, lv_pct(80), LV_SIZE_CONTENT);
   lv_obj_add_event_cb(forgetBtn, onForgetWifiClicked, LV_EVENT_CLICKED, nullptr);
@@ -117,12 +125,12 @@ static void openSettingsOverlay() {
   lv_label_set_text(forgetLabel, "Forget Wi-Fi");
   lv_obj_center(forgetLabel);
 
-  lv_obj_t *reconfigBtn = lv_btn_create(settingsOverlay);
-  lv_obj_set_size(reconfigBtn, lv_pct(80), LV_SIZE_CONTENT);
-  lv_obj_add_event_cb(reconfigBtn, onReconfigureAccountClicked, LV_EVENT_CLICKED, nullptr);
-  lv_obj_t *reconfigLabel = lv_label_create(reconfigBtn);
-  lv_label_set_text(reconfigLabel, "Reconfigure Claude Account");
-  lv_obj_center(reconfigLabel);
+  lv_obj_t *resetBtn = lv_btn_create(settingsOverlay);
+  lv_obj_set_size(resetBtn, lv_pct(80), LV_SIZE_CONTENT);
+  lv_obj_add_event_cb(resetBtn, onResetAccountClicked, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t *resetLabel = lv_label_create(resetBtn);
+  lv_label_set_text(resetLabel, "Reset Claude Account");
+  lv_obj_center(resetLabel);
 
   lv_obj_t *closeBtn = lv_btn_create(settingsOverlay);
   lv_obj_set_size(closeBtn, lv_pct(80), LV_SIZE_CONTENT);
@@ -140,8 +148,12 @@ static void pollUsage(bool force) {
   if (!force && now - lastPollMs < POLL_INTERVAL_MS) return;
   lastPollMs = now;
 
-  if (!ClaudeConfig::isConfigured()) {
-    UsageDashboard::setStatusLine("Not configured - type 'setup' over Serial");
+  if (!ClaudeConfig::isProvisioned()) {
+    UsageDashboard::setStatusLine("Not configured - visit http://claudeusage.local/");
+    return;
+  }
+  if (!ClaudeConfig::isUnlocked()) {
+    UsageDashboard::setStatusLine("Locked - visit http://claudeusage.local/ to unlock");
     return;
   }
 
@@ -158,21 +170,18 @@ static void onWifiConnected(const String &ip) {
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 
   // TouchWifiProvisioner fires this callback again after every reconnect,
-  // not just the first connection - the dashboard only needs building
-  // once; a reconnect should just let polling resume.
+  // not just the first connection - the dashboard and web server only
+  // need starting once; a reconnect should just let polling resume.
   if (!dashboardReady) {
     dashboardReady = true;
     UsageDashboard::build(lv_scr_act());
     UsageDashboard::setOnSettingsClicked(openSettingsOverlay);
 
-    if (!ClaudeConfig::isConfigured()) {
-      ClaudeConfig::startSetup();
-      UsageDashboard::setStatusLine("Not configured - follow prompts on Serial");
-      return;
-    }
+    ClaudeSetupServer::setOnUnlocked([]() { pollUsage(true); });
+    ClaudeSetupServer::begin();
   }
 
-  if (ClaudeConfig::isConfigured()) pollUsage(true);
+  pollUsage(true);
 }
 
 void setup() {
@@ -210,7 +219,9 @@ void setup() {
 void loop() {
   lv_timer_handler();
   TouchWifiProvisioner::loop();
-  ClaudeConfig::pollSerial();
-  if (TouchWifiProvisioner::isConnected()) pollUsage(false);
+  if (TouchWifiProvisioner::isConnected()) {
+    ClaudeSetupServer::handleClient();
+    pollUsage(false);
+  }
   delay(5);
 }
