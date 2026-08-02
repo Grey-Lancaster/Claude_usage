@@ -29,6 +29,7 @@ static const unsigned long POLL_INTERVAL_MS = 5UL * 60UL * 1000UL;  // claude.ai
 lv_obj_t *settingsOverlay = nullptr;
 unsigned long lastPollMs = 0;
 bool dashboardReady = false;
+std::function<void(WebServer &)> pendingScreenshotHandler;
 
 void closeSettingsOverlay() {
   if (settingsOverlay) {
@@ -250,6 +251,10 @@ void begin() {
   xTaskCreatePinnedToCore(fetchTaskFn, "usageFetch", 16384, nullptr, 1, nullptr, 0);
 }
 
+void setScreenshotHandler(std::function<void(WebServer &)> handler) {
+  pendingScreenshotHandler = handler;
+}
+
 void onWifiConnected(const String &ip) {
   Serial.printf("Wi-Fi connected, IP: %s\n", ip.c_str());
   // Blocks briefly (first connect only - already-synced time returns
@@ -282,6 +287,7 @@ void onWifiConnected(const String &ip) {
 
     ClaudeSetupServer::setOnUnlocked([]() { pollUsage(true); });
     ClaudeSetupServer::setOnTimezoneChanged([](const String &tz) { myTZ.setPosix(tz); });
+    if (pendingScreenshotHandler) ClaudeSetupServer::setScreenshotHandler(pendingScreenshotHandler);
     ClaudeSetupServer::begin();
 
     // Network OTA - "pio run -e cyd_ota -t upload" (or crowpanel7_ota)

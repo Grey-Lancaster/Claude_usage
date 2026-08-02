@@ -14,6 +14,7 @@ namespace {
 WebServer server(80);
 std::function<void()> onUnlocked;
 std::function<void(const String &)> onTimezoneChanged;
+std::function<void(WebServer &)> onScreenshot;
 bool lastUnlockFailed = false;
 
 // See setLastFetchStatus() in the header - everFetched stays false until
@@ -187,7 +188,14 @@ void handleRoot() {
         "<button type='submit'>Save timezone</button></form>";
   }
 
-  body += "<hr><p><a href='/update' style='color:#7ab0ff'>Firmware update</a></p>";
+  // Unconditional (not gated on provisioned/unlocked state) - the
+  // capture itself just grabs whatever's currently on screen, which
+  // works fine on the setup/locked screens too, not just the dashboard.
+  body +=
+      "<hr><p><a href='/screenshot.bmp' target='_blank' style='color:#7ab0ff'>"
+      "Screenshot the display</a> - grabs exactly what's on the screen right now, "
+      "for READMEs or social posts.</p>";
+  body += "<p><a href='/update' style='color:#7ab0ff'>Firmware update</a></p>";
   sendPage(body);
 }
 
@@ -318,6 +326,14 @@ void handleFavicon() {
   server.send_P(200, "image/x-icon", (const char *)favicon_ico, favicon_ico_len);
 }
 
+void handleScreenshot() {
+  if (!onScreenshot) {
+    server.send(404, "text/plain", "No screenshot handler registered for this board");
+    return;
+  }
+  onScreenshot(server);
+}
+
 void handleNotFound() {
   server.send(404, "text/plain", "Not found");
 }
@@ -330,6 +346,7 @@ void begin() {
 
   server.on("/", HTTP_GET, handleRoot);
   server.on("/favicon.ico", HTTP_GET, handleFavicon);
+  server.on("/screenshot.bmp", HTTP_GET, handleScreenshot);
   server.on("/provision", HTTP_POST, handleProvision);
   server.on("/unlock", HTTP_POST, handleUnlock);
   server.on("/reset", HTTP_POST, handleReset);
@@ -353,5 +370,7 @@ void setLastFetchStatus(bool ok, const String &detail) {
   lastFetchOk = ok;
   lastFetchDetail = detail;
 }
+
+void setScreenshotHandler(std::function<void(WebServer &)> handler) { onScreenshot = handler; }
 
 } // namespace ClaudeSetupServer

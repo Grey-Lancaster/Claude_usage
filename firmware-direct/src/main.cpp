@@ -22,6 +22,7 @@
 
 #include "AppLogic.h"
 #include "ClaudeConfig.h"
+#include "ScreenshotCapture.h"
 #include "boot_logo_cyd.h"
 
 #define XPT2046_IRQ 36
@@ -51,6 +52,7 @@ static void disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *c
   tft.setAddrWindow(area->x1, area->y1, w, h);
   tft.pushColors((uint16_t *)&color_p->full, w * h, true);
   tft.endWrite();
+  ScreenshotCapture::feedArea(area, color_p, w, h);
   lv_disp_flush_ready(disp);
 }
 
@@ -113,6 +115,7 @@ void setup() {
   indev_drv.read_cb = touchpad_read;
   lv_indev_drv_register(&indev_drv);
 
+  AppLogic::setScreenshotHandler([](WebServer &server) { ScreenshotCapture::stream(server, SCREEN_W, SCREEN_H); });
   AppLogic::begin();
   TouchWifiProvisioner::begin(lv_scr_act(), "ClaudeUsage", AppLogic::onWifiConnected);
 }

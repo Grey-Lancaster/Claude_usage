@@ -18,6 +18,7 @@
 #include "AppLogic.h"
 #include "ClaudeConfig.h"
 #include "LovyanGFX_Driver_CrowPanel7.h"
+#include "ScreenshotCapture.h"
 #include "boot_logo_crowpanel7.h"
 
 #define LCD_H_RES 800
@@ -34,7 +35,13 @@ static void disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *c
   if (gfx.getStartCount() > 0) {
     gfx.endWrite();
   }
-  gfx.pushImageDMA(area->x1, area->y1, area->x2 - area->x1 + 1, area->y2 - area->y1 + 1, (lgfx::rgb565_t *)&color_p->full);
+  uint32_t w = area->x2 - area->x1 + 1;
+  uint32_t h = area->y2 - area->y1 + 1;
+  gfx.pushImageDMA(area->x1, area->y1, w, h, (lgfx::rgb565_t *)&color_p->full);
+  // Safe to read color_p here even though the DMA push above may still be
+  // in flight - this only reads the buffer, never writes it, so there's
+  // no race with the DMA engine's own (also read-only) access.
+  ScreenshotCapture::feedArea(area, color_p, w, h);
   lv_disp_flush_ready(disp);
 }
 
@@ -117,6 +124,7 @@ void setup() {
   indev_drv.read_cb = touchpad_read;
   lv_indev_drv_register(&indev_drv);
 
+  AppLogic::setScreenshotHandler([](WebServer &server) { ScreenshotCapture::stream(server, LCD_H_RES, LCD_V_RES); });
   AppLogic::begin();
   TouchWifiProvisioner::begin(lv_scr_act(), "ClaudeUsage-CP7", AppLogic::onWifiConnected);
 }

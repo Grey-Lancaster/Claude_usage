@@ -9,6 +9,9 @@
 #pragma once
 
 #include <Arduino.h>
+#include <functional>
+
+class WebServer;
 
 namespace AppLogic {
 
@@ -16,6 +19,12 @@ namespace AppLogic {
 // display/indev drivers are registered, but before
 // TouchWifiProvisioner::begin(). Starts the background usage-fetch task.
 void begin();
+
+// Forwards to ClaudeSetupServer::setScreenshotHandler() once the setup
+// web server actually exists (that only happens on first Wi-Fi connect -
+// see onWifiConnected() below) - call any time before then, including
+// from setup() itself, and it'll be applied at the right moment.
+void setScreenshotHandler(std::function<void(WebServer &)> handler);
 
 // Pass this as TouchWifiProvisioner::begin()'s callback.
 void onWifiConnected(const String &ip);

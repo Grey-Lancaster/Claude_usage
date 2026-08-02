@@ -16,6 +16,8 @@
 #include <Arduino.h>
 #include <functional>
 
+class WebServer;
+
 namespace ClaudeSetupServer {
 
 // Starts the mDNS responder ("claudeusage.local") and the HTTP server.
@@ -42,5 +44,12 @@ void setOnTimezoneChanged(std::function<void(const String &)> cb);
 // correctly, this page didn't. Call after every fetch attempt, success or
 // failure; `detail` is ignored when `ok` is true.
 void setLastFetchStatus(bool ok, const String &detail);
+
+// Registers the board-specific handler for GET /screenshot.bmp - each
+// board's main file owns its own display/LVGL objects, so it's the one
+// that knows how to actually capture a frame (see
+// common/ScreenshotCapture.h). Call any time before the request could
+// arrive; unset means the route responds 404.
+void setScreenshotHandler(std::function<void(WebServer &)> handler);
 
 } // namespace ClaudeSetupServer
