@@ -5,7 +5,4 @@
 # installs - the opposite of a build artifact nobody wants tracked, so
 # they're exempted from the blanket *.bin rule above.
 !docs/firmware/**/*.bin
-relay-server/.venv/
-relay-server/.env
-relay-server/__pycache__/
 cookie-refresh/__pycache__/

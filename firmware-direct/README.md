@@ -4,7 +4,7 @@ Talks straight to `claude.ai` over HTTPS. The session cookie is stored
 **encrypted at rest** (AES-256-GCM, key derived via PBKDF2-HMAC-SHA256
 from a passphrase you choose) rather than in plaintext - see
 [`ClaudeConfig.h`](src/ClaudeConfig.h) for exactly how. Nothing else needs
-to be running - no PC, no relay.
+to be running - no PC required.
 
 ## Supported boards
 
@@ -40,9 +40,9 @@ running more than one simultaneously would collide.
    **`http://claudeusage.local/`**. Open that in a browser on the same
    network.
 2. The page walks you through finding your `ORG_ID` and session cookie
-   (DevTools > Network on claude.ai, same as documented in
-   [`../firmware-relay`](../firmware-relay)'s setup) and asks you to pick
-   a **passphrase**.
+   (DevTools > Network on claude.ai - see
+   [`../docs/cookie-guide.md`](../docs/cookie-guide.md) for the
+   illustrated version) and asks you to pick a **passphrase**.
 3. That passphrase is used once to derive the encryption key and is then
    discarded - **it is never written to flash.** Only the encrypted
    cookie is stored.

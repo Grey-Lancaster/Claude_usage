@@ -1,8 +1,7 @@
-// Shared LVGL dashboard for both firmware-direct and firmware-relay - the
-// two variants differ only in how they fetch a Snapshot (TLS straight to
-// claude.ai vs. a plain HTTP GET to a local relay), never in how it's
-// drawn. Referenced by both PlatformIO projects via lib_extra_dirs, same
-// pattern as TouchWifiProvisioner itself.
+// Shared LVGL dashboard for every board firmware-direct supports (CYD,
+// CrowPanel7, D1 mini) - board bring-up differs, but a Snapshot is drawn
+// the same way regardless. Referenced via lib_extra_dirs, same pattern
+// as TouchWifiProvisioner itself.
 #pragma once
 
 #include <Arduino.h>

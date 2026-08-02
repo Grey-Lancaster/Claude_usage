@@ -26,33 +26,28 @@ DevTools > Network while reloading Settings > Usage - see
 click-by-click version of that dig. It's **undocumented
 and unofficial** - Anthropic could change or remove it without notice,
 and this isn't a rate-limited public API meant for polling, which is why
-both variants below poll conservatively (5 minutes).
+this project polls conservatively (5 minutes).
 
-## Two variants, one trade-off: where does the cookie live?
+## Where does the cookie live?
 
 A `claude.ai` session cookie is equivalent to being logged into your
 account - not just "read your usage," but full account session access
 (chat history, starting new chats/burning usage, settings, connectors)
-until it expires or you kill the session. Where you're willing to put
-that determines which variant to build:
+until it expires or you kill the session. The board ([`firmware-direct`](firmware-direct))
+holds the cookie itself and talks to claude.ai directly - fully
+standalone, no PC required. It's stored encrypted (AES-256-GCM, key
+derived from a passphrase you set at `http://claudeusage.local/`, never
+written to flash) - a flash dump yields ciphertext, not the cookie.
+That's real protection, not full-disk flash encryption (which this
+project deliberately doesn't attempt - see [`firmware-direct`'s
+README](firmware-direct) for why), and it's not a substitute for good
+judgment: if the device is ever lost or stolen, log out the session or
+change your claude.ai password regardless of the encryption. It also
+boots locked - a passphrase is required to decrypt the cookie into RAM
+on every power cycle, so a device that's simply been unplugged and taken
+never has the cookie available at all.
 
-- **[`firmware-direct`](firmware-direct)** - the CYD holds the cookie
-  itself and talks to claude.ai directly. Fully standalone, no PC
-  required. The cookie is stored encrypted (AES-256-GCM, key derived from
-  a passphrase you set at `http://claudeusage.local/`, never written to
-  flash) - a flash dump yields ciphertext, not the cookie. That's real
-  protection, not full-disk flash encryption (which this project
-  deliberately doesn't attempt - see that variant's README for why), and
-  it's not a substitute for good judgment: if the device is ever lost or
-  stolen, log out the session or change your claude.ai password regardless
-  of the encryption.
-- **[`firmware-relay`](firmware-relay)** + **[`relay-server`](relay-server)** -
-  the cookie lives only in a small script on your PC
-  ([`relay-server`](relay-server)), which re-serves a simplified summary
-  over plain HTTP on your LAN. The CYD never touches the cookie at all.
-  Trade-off: that PC has to be running for the display to have live data.
-
-Both share the display/dashboard code in [`common/`](common) and the
+Uses the display/dashboard code in [`common/`](common) and the
 touchscreen Wi-Fi provisioning from
 [TouchWifiProvisioner](https://github.com/Grey-Lancaster/TouchWifiProvisioner).
 
@@ -60,8 +55,7 @@ touchscreen Wi-Fi provisioning from
 
 - **Cheap Yellow Display** (ESP32-2432S028R), ST7789 panel, resistive
   XPT2046 touch - same board TouchWifiProvisioner's CYD examples target.
-  Both variants run on this. Battle-tested throughout this project's
-  development.
+  Battle-tested throughout this project's development.
 - **Elecrow CrowPanel Advance 7.0" HMI** (ESP32-S3, 800x480 RGB IPS
   panel, GT911 capacitive touch) - `firmware-direct` only (the
   `crowpanel7` PlatformIO environment). Verified on real hardware - see
@@ -81,25 +75,22 @@ Most people don't need this section - use the
 the top of this README instead. This is for building from source (making
 your own changes, or just preferring PlatformIO over a browser flasher).
 
-Each variant is self-contained - `cd` into it and `pio run`, no manual
-file copying:
-
 ```bash
 git clone https://github.com/Grey-Lancaster/Claude_usage.git
-cd Claude_usage/firmware-direct   # or firmware-relay
-pio run -t upload
+cd Claude_usage/firmware-direct
+pio run -e cyd -t upload   # or -e crowpanel7 / -e d1mini
 ```
 
-See that variant's README for first-time setup (entering your org ID /
-cookie, or relay address).
+See [`firmware-direct`'s README](firmware-direct) for first-time setup
+(entering your org ID/cookie).
 
 ## Security
 
-Summarized above under [Two variants](#two-variants-one-trade-off-where-does-the-cookie-live);
-each variant's own README repeats the parts specific to it. The short
-version: this endpoint requires a real account session, and how carefully
-you handle that session's cookie is the main thing to think about before
-deploying either variant.
+Summarized above under [Where does the cookie live?](#where-does-the-cookie-live);
+[`firmware-direct`'s own README](firmware-direct) repeats the parts
+specific to it. The short version: this endpoint requires a real account
+session, and how carefully you handle that session's cookie is the main
+thing to think about before deploying it.
 
 ## License
 

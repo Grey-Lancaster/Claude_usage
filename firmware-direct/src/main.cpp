@@ -4,8 +4,7 @@
 // display + touch input registered, then handing off to AppLogic (shared
 // with every other board this project supports, e.g. the CrowPanel
 // Advance 7" in main_crowpanel7.cpp). See ../README.md for what this
-// dashboard actually does and firmware-relay/ for the alternative where
-// the cookie never touches the device at all.
+// dashboard actually does.
 //
 // Display/touch bring-up below is copied from TouchWifiProvisioner's
 // CYD_BasicConnect example - that library never touches the display bus

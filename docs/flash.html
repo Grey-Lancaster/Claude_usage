@@ -260,27 +260,6 @@
       </div>
     </div>
 
-    <div class="board-card">
-      <h2>firmware-relay</h2>
-      <div class="subtitle">Needs relay-server running on a PC</div>
-      <p>
-        The CYD never touches your session cookie - it polls a small script
-        (<code>relay-server</code>) that you run on your own computer,
-        which holds the cookie instead. The display only shows live data
-        while that script is running.
-      </p>
-      <esp-web-install-button manifest="firmware/relay/manifest.json">
-        <button slot="activate">Install firmware-relay</button>
-        <span slot="unsupported">Your browser doesn't support Web Serial - use desktop Chrome or Edge.</span>
-        <span slot="not-allowed">This page needs to be loaded over HTTPS to flash (it already is here).</span>
-      </esp-web-install-button>
-      <div class="board-note">
-        See the
-        <a href="https://github.com/Grey-Lancaster/Claude_usage/tree/main/relay-server">relay-server README</a>
-        to set up the companion script first.
-      </div>
-    </div>
-
   </div>
 </div>
 
