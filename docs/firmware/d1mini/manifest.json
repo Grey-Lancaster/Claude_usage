@@ -1,5 +1,5 @@
 {
-  "name": "Claude_usage - firmware-relay",
+  "name": "Claude_usage - firmware-direct (D1 mini + TFT 2.4 Touch Shield)",
   "version": "0.5.11",
   "new_install_prompt_erase": true,
   "builds": [

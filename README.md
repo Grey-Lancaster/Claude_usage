@@ -66,6 +66,11 @@ touchscreen Wi-Fi provisioning from
   panel, GT911 capacitive touch) - `firmware-direct` only (the
   `crowpanel7` PlatformIO environment). Verified on real hardware - see
   [`firmware-direct`'s README](firmware-direct#supported-boards).
+- **Wemos/LOLIN D1 mini (ESP32 clone) + TFT 2.4" Touch Shield V1.0**
+  (ILI9341 320x240 SPI, XPT2046 touch) - `firmware-direct` only (the
+  `d1mini` PlatformIO environment). Compiles clean but **hasn't been
+  verified on real hardware yet** - see
+  [`firmware-direct`'s README](firmware-direct#supported-boards).
 
 Pin mapping lives in each variant's `platformio.ini`.
 

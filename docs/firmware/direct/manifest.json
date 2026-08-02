@@ -1,6 +1,6 @@
 {
   "name": "Claude_usage - firmware-direct",
-  "version": "0.5.7",
+  "version": "0.5.11",
   "new_install_prompt_erase": true,
   "builds": [
     {
