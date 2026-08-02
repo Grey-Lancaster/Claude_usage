@@ -30,6 +30,15 @@ lv_color_t severityColor(int percent) {
   return lv_palette_main(LV_PALETTE_BLUE);
 }
 
+// UsageDashboard is deliberately board-agnostic (this file never touches
+// hardware directly - see the header comment), so board-specific font
+// scaling can't be a compile-time #ifdef here without breaking that. The
+// screen width of the actual `parent` object handed to build() already
+// reflects whichever display got registered though, so that's the signal
+// used instead - true only for the CrowPanel Advance 7" (800px wide) vs
+// the CYD (320px). 480 is a clean cutover point between them.
+bool largeDisplay = false;
+
 void styleCard(lv_obj_t *card) {
   lv_obj_remove_style_all(card);
   lv_obj_set_size(card, lv_pct(100), LV_SIZE_CONTENT);
@@ -43,8 +52,8 @@ void styleCard(lv_obj_t *card) {
   lv_obj_clear_flag(card, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_style_bg_color(card, lv_color_hex(0x1c1c1c), 0);
   lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
-  lv_obj_set_style_radius(card, 10, 0);
-  lv_obj_set_style_pad_all(card, 8, 0);
+  lv_obj_set_style_radius(card, largeDisplay ? 16 : 10, 0);
+  lv_obj_set_style_pad_all(card, largeDisplay ? 14 : 8, 0);
   lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
 }
 
@@ -65,15 +74,17 @@ Meter makeMeter(lv_obj_t *parent, const char *name) {
   m.nameLabel = lv_label_create(headerRow);
   lv_label_set_text(m.nameLabel, name);
   lv_obj_set_style_text_color(m.nameLabel, lv_color_white(), 0);
+  if (largeDisplay) lv_obj_set_style_text_font(m.nameLabel, &lv_font_montserrat_24, 0);
 
   m.valueLabel = lv_label_create(headerRow);
   lv_label_set_text(m.valueLabel, "--");
   lv_obj_set_style_text_color(m.valueLabel, lv_color_white(), 0);
+  if (largeDisplay) lv_obj_set_style_text_font(m.valueLabel, &lv_font_montserrat_24, 0);
 
   m.bar = lv_bar_create(card);
   lv_obj_clear_flag(m.bar, LV_OBJ_FLAG_CLICKABLE);  // lv_bar doesn't clear this itself either; see styleCard() comment
-  lv_obj_set_size(m.bar, lv_pct(100), 10);
-  lv_obj_set_style_pad_top(m.bar, 6, 0);
+  lv_obj_set_size(m.bar, lv_pct(100), largeDisplay ? 18 : 10);
+  lv_obj_set_style_pad_top(m.bar, largeDisplay ? 8 : 6, 0);
   lv_obj_set_style_bg_color(m.bar, lv_color_hex(0x3a3a3a), LV_PART_MAIN);
   lv_obj_set_style_bg_opa(m.bar, LV_OPA_COVER, LV_PART_MAIN);
   lv_bar_set_range(m.bar, 0, 100);
@@ -82,8 +93,8 @@ Meter makeMeter(lv_obj_t *parent, const char *name) {
   m.subLabel = lv_label_create(card);
   lv_label_set_text(m.subLabel, "");
   lv_obj_set_style_text_color(m.subLabel, lv_color_hex(0x999999), 0);
-  lv_obj_set_style_text_font(m.subLabel, &lv_font_montserrat_14, 0);
-  lv_obj_set_style_pad_top(m.subLabel, 2, 0);
+  lv_obj_set_style_text_font(m.subLabel, largeDisplay ? &lv_font_montserrat_16 : &lv_font_montserrat_14, 0);
+  lv_obj_set_style_pad_top(m.subLabel, largeDisplay ? 6 : 2, 0);
 
   return m;
 }
@@ -182,15 +193,17 @@ void onRootPressed(lv_event_t *e) {
 } // namespace
 
 void build(lv_obj_t *parent) {
+  largeDisplay = lv_obj_get_width(parent) >= 480;
+
   lv_obj_t *root = lv_obj_create(parent);
   lv_obj_remove_style_all(root);
   lv_obj_set_size(root, lv_pct(100), lv_pct(100));
   lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_style_bg_color(root, lv_color_black(), 0);
   lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-  lv_obj_set_style_pad_all(root, 8, 0);
+  lv_obj_set_style_pad_all(root, largeDisplay ? 16 : 8, 0);
   lv_obj_set_flex_flow(root, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_style_pad_row(root, 6, 0);
+  lv_obj_set_style_pad_row(root, largeDisplay ? 10 : 6, 0);
   // Tap-to-refresh: none of root's children (title, meter cards) are
   // themselves clickable except the gear button, so LVGL's hit-testing
   // falls through to root - the nearest clickable ancestor - for a tap
@@ -209,21 +222,27 @@ void build(lv_obj_t *parent) {
 
   lv_obj_t *title = lv_label_create(headerRow);
   lv_label_set_text(title, "Claude Usage");
-  lv_obj_set_style_text_font(title, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_font(title, largeDisplay ? &lv_font_montserrat_48 : &lv_font_montserrat_24, 0);
   lv_obj_set_style_text_color(title, lv_color_white(), 0);
 
   // A little mascot badge, drawn from plain LVGL shapes rather than a
   // bundled bitmap - no image asset/converter pipeline exists in this
   // project yet, and a blocky body + two eyes is simple enough to just
-  // build directly.
+  // build directly. Scaled ~1.7x on the big display to stay proportional
+  // next to the larger title text next to it.
+  int mascotW = largeDisplay ? 48 : 28;
+  int mascotH = largeDisplay ? 40 : 24;
   lv_obj_t *mascot = lv_obj_create(headerRow);
   lv_obj_remove_style_all(mascot);
   lv_obj_clear_flag(mascot, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_clear_flag(mascot, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_set_size(mascot, 28, 24);
-  lv_obj_set_style_radius(mascot, 5, 0);
+  lv_obj_set_size(mascot, mascotW, mascotH);
+  lv_obj_set_style_radius(mascot, largeDisplay ? 8 : 5, 0);
   lv_obj_set_style_bg_color(mascot, lv_color_hex(0xE0795A), 0);
   lv_obj_set_style_bg_opa(mascot, LV_OPA_COVER, 0);
+
+  int eyeW = largeDisplay ? 7 : 4;
+  int eyeH = largeDisplay ? 13 : 8;
 
   lv_obj_t *eyeL = lv_obj_create(mascot);
   lv_obj_remove_style_all(eyeL);
@@ -231,8 +250,8 @@ void build(lv_obj_t *parent) {
   lv_obj_clear_flag(eyeL, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_style_bg_color(eyeL, lv_color_black(), 0);
   lv_obj_set_style_bg_opa(eyeL, LV_OPA_COVER, 0);
-  lv_obj_set_size(eyeL, 4, 8);
-  lv_obj_set_pos(eyeL, 6, 7);
+  lv_obj_set_size(eyeL, eyeW, eyeH);
+  lv_obj_set_pos(eyeL, largeDisplay ? 10 : 6, largeDisplay ? 12 : 7);
 
   lv_obj_t *eyeR = lv_obj_create(mascot);
   lv_obj_remove_style_all(eyeR);
@@ -240,17 +259,19 @@ void build(lv_obj_t *parent) {
   lv_obj_clear_flag(eyeR, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_set_style_bg_color(eyeR, lv_color_black(), 0);
   lv_obj_set_style_bg_opa(eyeR, LV_OPA_COVER, 0);
-  lv_obj_set_size(eyeR, 4, 8);
-  lv_obj_set_pos(eyeR, 18, 7);
+  lv_obj_set_size(eyeR, eyeW, eyeH);
+  lv_obj_set_pos(eyeR, largeDisplay ? 31 : 18, largeDisplay ? 12 : 7);
 
+  int gearSize = largeDisplay ? 46 : 34;
   lv_obj_t *gearBtn = lv_btn_create(headerRow);
-  lv_obj_set_size(gearBtn, 34, 34);
-  lv_obj_set_style_radius(gearBtn, 17, 0);
+  lv_obj_set_size(gearBtn, gearSize, gearSize);
+  lv_obj_set_style_radius(gearBtn, gearSize / 2, 0);
   lv_obj_set_style_bg_color(gearBtn, lv_color_hex(0x2a2a2a), 0);
   lv_obj_set_style_shadow_width(gearBtn, 0, 0);
   lv_obj_add_event_cb(gearBtn, onGearClicked, LV_EVENT_CLICKED, nullptr);
   lv_obj_t *gearLabel = lv_label_create(gearBtn);
   lv_label_set_text(gearLabel, LV_SYMBOL_SETTINGS);
+  if (largeDisplay) lv_obj_set_style_text_font(gearLabel, &lv_font_montserrat_24, 0);
   lv_obj_center(gearLabel);
 
   sessionMeter = makeMeter(root, "Session (5hr)");
@@ -260,7 +281,7 @@ void build(lv_obj_t *parent) {
   statusLabel = lv_label_create(root);
   lv_label_set_text(statusLabel, "Connecting...");
   lv_obj_set_style_text_color(statusLabel, lv_color_hex(0x777777), 0);
-  lv_obj_set_style_text_font(statusLabel, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_font(statusLabel, largeDisplay ? &lv_font_montserrat_16 : &lv_font_montserrat_14, 0);
 
   // Covers the (otherwise indistinguishable-from-"just no data yet") empty
   // meters until the first real fetch succeeds - a locked/not-configured
@@ -282,13 +303,13 @@ void build(lv_obj_t *parent) {
 
   lv_obj_t *lockTitle = lv_label_create(lockOverlay);
   lv_label_set_text(lockTitle, "LOCKED");
-  lv_obj_set_style_text_font(lockTitle, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_font(lockTitle, largeDisplay ? &lv_font_montserrat_48 : &lv_font_montserrat_24, 0);
   lv_obj_set_style_text_color(lockTitle, lv_palette_main(LV_PALETTE_ORANGE), 0);
 
   lockDetailLabel = lv_label_create(lockOverlay);
   lv_label_set_text(lockDetailLabel, "Connecting...");
   lv_obj_set_style_text_color(lockDetailLabel, lv_color_white(), 0);
-  lv_obj_set_style_text_font(lockDetailLabel, &lv_font_montserrat_14, 0);
+  lv_obj_set_style_text_font(lockDetailLabel, largeDisplay ? &lv_font_montserrat_24 : &lv_font_montserrat_14, 0);
   lv_label_set_long_mode(lockDetailLabel, LV_LABEL_LONG_WRAP);
   lv_obj_set_width(lockDetailLabel, lv_pct(85));
   lv_obj_set_style_text_align(lockDetailLabel, LV_TEXT_ALIGN_CENTER, 0);

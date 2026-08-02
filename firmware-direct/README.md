@@ -1,10 +1,29 @@
 # firmware-direct
 
-The CYD talks straight to `claude.ai` over HTTPS. The session cookie is
-stored **encrypted at rest** (AES-256-GCM, key derived via PBKDF2-HMAC-SHA256
+Talks straight to `claude.ai` over HTTPS. The session cookie is stored
+**encrypted at rest** (AES-256-GCM, key derived via PBKDF2-HMAC-SHA256
 from a passphrase you choose) rather than in plaintext - see
 [`ClaudeConfig.h`](src/ClaudeConfig.h) for exactly how. Nothing else needs
 to be running - no PC, no relay.
+
+## Supported boards
+
+Two `platformio.ini` environments, both building the exact same app logic
+(`AppLogic.h/.cpp`, `ClaudeConfig`, `ClaudeSetupServer`,
+`ClaudeUsageClient`, and the shared `../common` dashboard) against
+different board-bring-up files:
+
+- **`cyd`** - Cheap Yellow Display (ESP32-2432S028R). `src/main.cpp`.
+  Battle-tested on real hardware throughout this project's development.
+- **`crowpanel7`** - Elecrow CrowPanel Advance 7.0" HMI (ESP32-S3,
+  800x480 RGB IPS panel, GT911 capacitive touch). `src/main_crowpanel7.cpp`
+  + `src/LovyanGFX_Driver_CrowPanel7.h`. Verified on real hardware - the
+  config (partition table, PSRAM toolchain fork, LovyanGFX panel timings)
+  is copied from TouchWifiProvisioner's `CrowPanel7_RollingClock` example.
+
+Both boards currently register the same `claudeusage`/`ClaudeUsage`
+mDNS/OTA hostname - fine with only one on your network at a time, but
+running a CYD and a CrowPanel7 simultaneously would collide.
 
 ## How setup works
 
@@ -51,7 +70,7 @@ defeats the point.
 
 ```bash
 cd firmware-direct
-pio run -t upload
+pio run -e cyd -t upload   # or -e crowpanel7
 pio device monitor
 ```
 
@@ -67,7 +86,8 @@ Two ways, both need the device already running a build with this feature
   bootloader/partitions, which this route doesn't touch), and upload.
   Reuses the same web server already running for setup, so it isn't
   affected by the Windows Firewall issue below.
-- **`pio run -e cyd_ota -t upload`** (ArduinoOTA/espota protocol): if
+- **`pio run -e cyd_ota -t upload`** (or `crowpanel7_ota` for that
+  board) - ArduinoOTA/espota protocol: if
   nothing happens past "Authenticating...OK", Windows Firewall is almost
   certainly silently blocking the callback connection `espota` needs.
   Run this once in an **elevated** PowerShell:
@@ -82,7 +102,7 @@ LAN who finds the device can push arbitrary firmware to it.
 
 ## Notes
 
-- Polls every 5 minutes (`POLL_INTERVAL_MS` in `src/main.cpp`) -
+- Polls every 5 minutes (`POLL_INTERVAL_MS` in `src/AppLogic.cpp`) -
   deliberately conservative since this hits an undocumented internal
   endpoint, not a public rate-limited API meant for polling.
 - TLS to claude.ai is validated against Let's Encrypt's ISRG Root X1

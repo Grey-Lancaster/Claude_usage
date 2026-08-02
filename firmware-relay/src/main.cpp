@@ -25,6 +25,7 @@
 #include "RelayConfig.h"
 #include "RelaySettings.h"
 #include "UsageDashboard.h"
+#include "boot_logo_cyd.h"
 
 #ifndef OTA_PASSWORD
 #define OTA_PASSWORD "changeme"  // override in platformio.ini before deploying - see README
@@ -74,6 +75,25 @@ static void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data) {
   data->state = LV_INDEV_STATE_PR;
   data->point.x = map(p.x, TOUCH_X_MIN, TOUCH_X_MAX, 0, SCREEN_W);
   data->point.y = map(p.y, TOUCH_Y_MIN, TOUCH_Y_MAX, 0, SCREEN_H);
+}
+
+// Boot splash: same pushColors(..., swap=true) call disp_flush() already
+// uses for every LVGL frame on this exact panel, just aimed at a raw logo
+// buffer instead of LVGL's draw buffer - reuses a proven-correct call
+// rather than a second, separately-verified byte-order convention.
+// cyd_boot_logo_map (common/boot_logo_cyd.c) was generated from
+// TouchWifiProvisioner's DBN One Page project's source logo PNG, resized
+// for this screen.
+static void drawBootSplash() {
+  tft.fillScreen(TFT_WHITE);  // matches the logo's own white card background
+  int x = (SCREEN_W - CYD_BOOT_LOGO_SIZE) / 2;
+  int y = (SCREEN_H - CYD_BOOT_LOGO_SIZE) / 2;
+  tft.startWrite();
+  tft.setAddrWindow(x, y, CYD_BOOT_LOGO_SIZE, CYD_BOOT_LOGO_SIZE);
+  tft.pushColors((uint16_t *)cyd_boot_logo_map, CYD_BOOT_LOGO_SIZE * CYD_BOOT_LOGO_SIZE, true);
+  tft.endWrite();
+  delay(5000);
+  tft.fillScreen(TFT_BLACK);
 }
 
 static void pollUsage(bool force) {
@@ -208,7 +228,7 @@ void setup() {
 
   tft.init();
   tft.setRotation(3);
-  tft.fillScreen(TFT_BLACK);
+  drawBootSplash();
 
   SPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
   ts.begin();

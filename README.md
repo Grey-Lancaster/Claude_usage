@@ -58,9 +58,16 @@ touchscreen Wi-Fi provisioning from
 
 ## Hardware
 
-Cheap Yellow Display (ESP32-2432S028R), ST7789 panel, resistive XPT2046
-touch - same board TouchWifiProvisioner's CYD examples target. Pin
-mapping lives in each variant's `platformio.ini`.
+- **Cheap Yellow Display** (ESP32-2432S028R), ST7789 panel, resistive
+  XPT2046 touch - same board TouchWifiProvisioner's CYD examples target.
+  Both variants run on this. Battle-tested throughout this project's
+  development.
+- **Elecrow CrowPanel Advance 7.0" HMI** (ESP32-S3, 800x480 RGB IPS
+  panel, GT911 capacitive touch) - `firmware-direct` only (the
+  `crowpanel7` PlatformIO environment). Verified on real hardware - see
+  [`firmware-direct`'s README](firmware-direct#supported-boards).
+
+Pin mapping lives in each variant's `platformio.ini`.
 
 ## Build
 

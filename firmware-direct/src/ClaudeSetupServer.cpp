@@ -6,6 +6,7 @@
 
 #include "ClaudeConfig.h"
 #include "OtaPassword.h"
+#include "favicon_ico.h"
 
 namespace ClaudeSetupServer {
 namespace {
@@ -103,6 +104,7 @@ String buildTzOptionsHtml(const String &current) {
 
 const char *PAGE_HEAD =
     "<!DOCTYPE html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
+    "<link rel='icon' href='/favicon.ico'>"
     "<title>Claude Usage</title><style>"
     "body{background:#111;color:#eee;font-family:sans-serif;max-width:420px;margin:2em auto;padding:0 1em}"
     "h1{font-size:1.3em}label{display:block;margin-top:1em;color:#aaa;font-size:.9em}"
@@ -312,6 +314,10 @@ void handleReset() {
   redirectHome();
 }
 
+void handleFavicon() {
+  server.send_P(200, "image/x-icon", (const char *)favicon_ico, favicon_ico_len);
+}
+
 void handleNotFound() {
   server.send(404, "text/plain", "Not found");
 }
@@ -323,6 +329,7 @@ void begin() {
   MDNS.addService("http", "tcp", 80);
 
   server.on("/", HTTP_GET, handleRoot);
+  server.on("/favicon.ico", HTTP_GET, handleFavicon);
   server.on("/provision", HTTP_POST, handleProvision);
   server.on("/unlock", HTTP_POST, handleUnlock);
   server.on("/reset", HTTP_POST, handleReset);
