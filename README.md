@@ -11,6 +11,16 @@ shown in claude.ai's Settings > Usage panel.
 
 Code by Grey and his buddy Claude.
 
+## Screenshots
+
+<table>
+<tr>
+<td align="center"><img src="docs/images/dashboard.png" width="260"><br><sub>Live dashboard</sub></td>
+<td align="center"><img src="docs/images/locked-screen.png" width="260"><br><sub>Boots locked - passphrase required to unlock the cookie</sub></td>
+<td align="center"><img src="docs/images/setup-page-locked.png" width="260"><br><sub>On-device setup page (<code>http://claudeusage.local/</code>)</sub></td>
+</tr>
+</table>
+
 ## How this works
 
 There's no public API for these numbers - they're internal to claude.ai's

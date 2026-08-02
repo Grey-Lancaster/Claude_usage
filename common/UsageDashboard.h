@@ -39,10 +39,28 @@ void build(lv_obj_t *parent);
 // rebuilds the layout, safe to call every poll.
 void update(const Snapshot &snap);
 
-// Small line under the meters - wifi/poll status, not part of Snapshot
+// Small row under the meters - wifi/poll status, not part of Snapshot
 // since it reflects transport state the fetch layer knows about that a
-// Snapshot alone doesn't (e.g. "Connecting...", "Wi-Fi lost").
+// Snapshot alone doesn't (e.g. "Connecting...", "Wi-Fi lost"). Occupies
+// the full row via the left slot; clears the countdown/uptime slots
+// setLiveStatus() below drives, since a single free-form message and a
+// live countdown don't make sense on screen at the same time.
 void setStatusLine(const String &text);
+
+// Sets the row's left slot to "Updated" - call once per successful
+// fetch. Leaves the countdown/uptime slots alone; setLiveStatus() below
+// owns those independently since they tick every second, not once per
+// poll.
+void setUpdatedLabel();
+
+// Ticks the row's other slot(s) - call every ~1s once the dashboard is
+// live (first successful fetch has happened). `countdownText` (e.g.
+// "Next update in 4:52") goes in the row's middle slot on wide displays
+// (>=480px) or its right slot on narrow ones. `uptimeText` only appears
+// on wide displays, which have room for a third slot - passed but
+// ignored elsewhere, since narrow displays don't have anywhere to put
+// it (see this file's largeDisplay checks).
+void setLiveStatus(const String &countdownText, const String &uptimeText);
 
 // Fires when the user taps the settings gear (top-right).
 void setOnSettingsClicked(std::function<void()> cb);

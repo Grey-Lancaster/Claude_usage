@@ -3,7 +3,10 @@
 namespace UsageDashboard {
 namespace {
 
-lv_obj_t *statusLabel = nullptr;
+lv_obj_t *mascot = nullptr;                // header badge - see wiggleMascot() below
+lv_obj_t *statusLabel = nullptr;           // left slot - "Updated" or a single-message status
+lv_obj_t *statusCountdownLabel = nullptr;  // middle slot on wide displays, right slot on narrow ones
+lv_obj_t *statusUptimeLabel = nullptr;     // right slot, wide displays only - stays nullptr on narrow ones
 lv_obj_t *lockOverlay = nullptr;
 lv_obj_t *lockDetailLabel = nullptr;
 bool everValid = false;
@@ -232,7 +235,7 @@ void build(lv_obj_t *parent) {
   // next to the larger title text next to it.
   int mascotW = largeDisplay ? 48 : 28;
   int mascotH = largeDisplay ? 40 : 24;
-  lv_obj_t *mascot = lv_obj_create(headerRow);
+  mascot = lv_obj_create(headerRow);
   lv_obj_remove_style_all(mascot);
   lv_obj_clear_flag(mascot, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_clear_flag(mascot, LV_OBJ_FLAG_CLICKABLE);
@@ -240,6 +243,11 @@ void build(lv_obj_t *parent) {
   lv_obj_set_style_radius(mascot, largeDisplay ? 8 : 5, 0);
   lv_obj_set_style_bg_color(mascot, lv_color_hex(0xE0795A), 0);
   lv_obj_set_style_bg_opa(mascot, LV_OPA_COVER, 0);
+  // Rotate around its own center (default pivot is the top-left corner)
+  // - see wiggleMascot() below, which spins this a few degrees each
+  // update.
+  lv_obj_set_style_transform_pivot_x(mascot, mascotW / 2, 0);
+  lv_obj_set_style_transform_pivot_y(mascot, mascotH / 2, 0);
 
   int eyeW = largeDisplay ? 7 : 4;
   int eyeH = largeDisplay ? 13 : 8;
@@ -278,10 +286,56 @@ void build(lv_obj_t *parent) {
   weeklyMeter = makeMeter(root, "Weekly");
   creditsMeter = makeMeter(root, "Credits");
 
-  statusLabel = lv_label_create(root);
+  lv_obj_t *statusRow = lv_obj_create(root);
+  lv_obj_remove_style_all(statusRow);
+  lv_obj_set_size(statusRow, lv_pct(100), LV_SIZE_CONTENT);
+  lv_obj_clear_flag(statusRow, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_clear_flag(statusRow, LV_OBJ_FLAG_CLICKABLE);  // let a tap here still bubble to root's background-tap-to-refresh
+  lv_obj_set_flex_flow(statusRow, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(statusRow, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+  statusLabel = lv_label_create(statusRow);
   lv_label_set_text(statusLabel, "Connecting...");
   lv_obj_set_style_text_color(statusLabel, lv_color_hex(0x777777), 0);
   lv_obj_set_style_text_font(statusLabel, largeDisplay ? &lv_font_montserrat_16 : &lv_font_montserrat_14, 0);
+  // On wide displays, match statusUptimeLabel's fixed width (190, below)
+  // so the row is symmetric left/right - SPACE_BETWEEN only equalizes
+  // the *gaps* between children, not the middle child's position
+  // relative to true center, so an unequal left/right footprint (a
+  // short "Updated" against a wide fixed uptime box) visibly pushed the
+  // countdown off-center. Left-aligned text keeps "Updated" reading
+  // flush-left within the wider box rather than drifting to its middle.
+  if (largeDisplay) {
+    lv_obj_set_width(statusLabel, 190);
+    lv_obj_set_style_text_align(statusLabel, LV_TEXT_ALIGN_LEFT, 0);
+  }
+
+  // Fixed width + alignment (rather than auto-sizing to content) on both
+  // ticking labels below - SPACE_BETWEEN recomputes every child's gap
+  // from its *current* rendered width, so as uptime's text grows from
+  // "12s" to "5m 9s" to "1h 5m" (and the countdown's digits change),
+  // auto-sized labels made the whole row visibly reflow and the middle
+  // countdown jump around every second. A fixed box means the row's
+  // layout stays constant regardless of what the digits are.
+  statusCountdownLabel = lv_label_create(statusRow);
+  lv_label_set_text(statusCountdownLabel, "");
+  lv_obj_set_style_text_color(statusCountdownLabel, lv_color_hex(0x777777), 0);
+  lv_obj_set_style_text_font(statusCountdownLabel, largeDisplay ? &lv_font_montserrat_16 : &lv_font_montserrat_14, 0);
+  lv_obj_set_width(statusCountdownLabel, largeDisplay ? 170 : 130);
+  lv_obj_set_style_text_align(statusCountdownLabel, largeDisplay ? LV_TEXT_ALIGN_CENTER : LV_TEXT_ALIGN_RIGHT, 0);
+
+  // Third slot only on wide displays - SPACE_BETWEEN naturally centers
+  // the countdown between this and statusLabel when it exists, and
+  // collapses back to a clean 2-way left/right split when it doesn't,
+  // so no separate positioning logic is needed either way.
+  if (largeDisplay) {
+    statusUptimeLabel = lv_label_create(statusRow);
+    lv_label_set_text(statusUptimeLabel, "");
+    lv_obj_set_style_text_color(statusUptimeLabel, lv_color_hex(0x777777), 0);
+    lv_obj_set_style_text_font(statusUptimeLabel, &lv_font_montserrat_16, 0);
+    lv_obj_set_width(statusUptimeLabel, 190);
+    lv_obj_set_style_text_align(statusUptimeLabel, LV_TEXT_ALIGN_RIGHT, 0);
+  }
 
   // Covers the (otherwise indistinguishable-from-"just no data yet") empty
   // meters until the first real fetch succeeds - a locked/not-configured
@@ -345,13 +399,69 @@ void update(const Snapshot &snap) {
   }
 }
 
+// A little celebratory wiggle on the header mascot each time an update
+// lands - three chained short animations (rather than one anim with
+// playback, which just reverses back to its own start value) so the
+// motion actually goes center -> counter-clockwise -> clockwise ->
+// center instead of a single there-and-back swing.
+void mascotWiggleLeg3(lv_anim_t *) {
+  static lv_anim_t a;
+  lv_anim_init(&a);
+  lv_anim_set_var(&a, mascot);
+  lv_anim_set_exec_cb(&a, [](void *obj, int32_t v) { lv_obj_set_style_transform_angle((lv_obj_t *)obj, v, 0); });
+  lv_anim_set_values(&a, 120, 0);
+  lv_anim_set_time(&a, 150);
+  lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+  lv_anim_start(&a);
+}
+
+void mascotWiggleLeg2(lv_anim_t *) {
+  static lv_anim_t a;
+  lv_anim_init(&a);
+  lv_anim_set_var(&a, mascot);
+  lv_anim_set_exec_cb(&a, [](void *obj, int32_t v) { lv_obj_set_style_transform_angle((lv_obj_t *)obj, v, 0); });
+  lv_anim_set_values(&a, -120, 120);
+  lv_anim_set_time(&a, 250);
+  lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+  lv_anim_set_ready_cb(&a, mascotWiggleLeg3);
+  lv_anim_start(&a);
+}
+
+void wiggleMascot() {
+  if (!mascot) return;
+  static lv_anim_t a;
+  lv_anim_init(&a);
+  lv_anim_set_var(&a, mascot);
+  lv_anim_set_exec_cb(&a, [](void *obj, int32_t v) { lv_obj_set_style_transform_angle((lv_obj_t *)obj, v, 0); });
+  lv_anim_set_values(&a, 0, -120);  // angle units are 0.1deg, so -120/120 = 12 degrees
+  lv_anim_set_time(&a, 150);
+  lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
+  lv_anim_set_ready_cb(&a, mascotWiggleLeg2);
+  lv_anim_start(&a);
+}
+
 void setStatusLine(const String &text) {
   if (statusLabel) lv_label_set_text(statusLabel, text.c_str());
+  if (statusCountdownLabel) lv_label_set_text(statusCountdownLabel, "");
+  if (statusUptimeLabel) lv_label_set_text(statusUptimeLabel, "");
   // The LOCKED overlay sits fully opaque on top of statusLabel while
   // !everValid, so callers like pollUsage()'s "not configured"/"locked"
   // messages would otherwise be computed correctly but never actually seen -
   // mirror them onto the overlay's own label too.
   if (lockDetailLabel) lv_label_set_text(lockDetailLabel, text.c_str());
+}
+
+void setUpdatedLabel() {
+  if (statusLabel) lv_label_set_text(statusLabel, "Updated");
+  // lockOverlay is always hidden by the time this is called (only reached
+  // after a successful fetch, which requires unlocked+configured), so
+  // there's no lockDetailLabel echo needed here the way setStatusLine() does.
+  wiggleMascot();
+}
+
+void setLiveStatus(const String &countdownText, const String &uptimeText) {
+  if (statusCountdownLabel) lv_label_set_text(statusCountdownLabel, countdownText.c_str());
+  if (statusUptimeLabel) lv_label_set_text(statusUptimeLabel, uptimeText.c_str());
 }
 
 void setOnSettingsClicked(std::function<void()> cb) {

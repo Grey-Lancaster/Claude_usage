@@ -76,41 +76,66 @@ String formatResetsAt(const String &resetsAtIso) {
 bool fetch(const String &orgId, const String &cookie, UsageDashboard::Snapshot &out) {
   out.valid = false;
 
-  WiFiClientSecure client;
-  client.setCACert(CLAUDE_ROOT_CA);
-
-  HTTPClient http;
   String url = "https://claude.ai/api/organizations/" + orgId + "/usage";
-  Serial.printf("[claude] GET %s (cookie len %d)\n", url.c_str(), cookie.length());
-  if (!http.begin(client, url)) {
-    Serial.println("[claude] http.begin() failed");
-    out.error = "HTTP begin failed";
-    return false;
-  }
-  http.addHeader("Cookie", cookie);
-  http.addHeader("User-Agent", "Claude_usage-CYD/1.0 (+https://github.com/Grey-Lancaster/Claude_usage)");
-  // HTTPClient doesn't auto-decompress - without this, a gzip'd response
-  // (common behind a CDN) reads as garbage bytes to the JSON parser.
-  http.addHeader("Accept-Encoding", "identity");
-  http.setTimeout(10000);
 
-  int code = http.GET();
-  Serial.printf("[claude] -> HTTP %d\n", code);
-  if (code <= 0) {
-    // Negative codes are HTTPClient's own error enum (connect/TLS/timeout
-    // failures never reached a server response) - print what it means.
-    Serial.printf("[claude] transport error: %s\n", http.errorToString(code).c_str());
-  } else if (code != 200) {
-    String body = http.getString();
-    Serial.printf("[claude] response body (first 300 chars): %s\n", body.substring(0, 300).c_str());
-  }
-  if (code == 401 || code == 403) {
+  // claude.ai sits behind Cloudflare, which occasionally flags this
+  // request's non-browser fingerprint (custom User-Agent, no real browser
+  // TLS/JS fingerprint) and returns a 401/403 that has nothing to do with
+  // the actual cookie - a plain retry with the exact same cookie
+  // routinely succeeds, which a genuinely expired cookie never would.
+  // Retry a couple of times (fresh TCP+TLS connection each time, not
+  // reusing a client that just had a request rejected) before reporting
+  // the reconfigure-demanding error, so a transient Cloudflare hiccup
+  // doesn't send someone hunting for a new cookie that was never the
+  // problem.
+  const int MAX_ATTEMPTS = 3;
+  int code = 0;
+  String body;
+
+  for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    WiFiClientSecure client;
+    client.setCACert(CLAUDE_ROOT_CA);
+
+    HTTPClient http;
+    Serial.printf("[claude] GET %s (cookie len %d, attempt %d/%d)\n", url.c_str(), cookie.length(), attempt, MAX_ATTEMPTS);
+    if (!http.begin(client, url)) {
+      Serial.println("[claude] http.begin() failed");
+      out.error = "HTTP begin failed";
+      return false;
+    }
+    http.addHeader("Cookie", cookie);
+    http.addHeader("User-Agent", "Claude_usage-CYD/1.0 (+https://github.com/Grey-Lancaster/Claude_usage)");
+    // HTTPClient doesn't auto-decompress - without this, a gzip'd response
+    // (common behind a CDN) reads as garbage bytes to the JSON parser.
+    http.addHeader("Accept-Encoding", "identity");
+    http.setTimeout(10000);
+
+    code = http.GET();
+    Serial.printf("[claude] -> HTTP %d\n", code);
+    if (code <= 0) {
+      // Negative codes are HTTPClient's own error enum (connect/TLS/timeout
+      // failures never reached a server response) - print what it means.
+      Serial.printf("[claude] transport error: %s\n", http.errorToString(code).c_str());
+    } else {
+      // getString() (not the stream) so the raw bytes are still around to
+      // print if parsing fails - a streamed parse loses them on error,
+      // which cost a whole extra flash-and-test cycle chasing a
+      // gzip-encoding issue blind. Fetched here regardless of the code so
+      // it's available below for both the error-logging and success path.
+      body = http.getString();
+      if (code != 200) Serial.printf("[claude] response body (first 300 chars): %s\n", body.substring(0, 300).c_str());
+    }
     http.end();
+
+    if (code != 401 && code != 403) break;  // only 401/403 gets retried - see comment above
+    if (attempt < MAX_ATTEMPTS) delay(750);
+  }
+
+  if (code == 401 || code == 403) {
     out.error = "Cookie expired - reconfigure";
     return false;
   }
   if (code != 200) {
-    http.end();
     // A raw "HTTP 400" reads as noise to someone who isn't debugging this
     // over serial - the real code is still logged above for that case. In
     // practice this path fires almost entirely from a mistyped/truncated
@@ -119,13 +144,6 @@ bool fetch(const String &orgId, const String &cookie, UsageDashboard::Snapshot &
     out.error = "Something's wrong - check your org ID/cookie and try again";
     return false;
   }
-
-  // getString() (not the stream) so the raw bytes are still around to
-  // print if parsing fails - a streamed parse loses them on error, which
-  // cost a whole extra flash-and-test cycle chasing a gzip-encoding issue
-  // blind.
-  String body = http.getString();
-  http.end();
 
   // Parses the full response rather than filtering it down to just
   // limits/spend - a StaticJsonDocument filter here previously undersized

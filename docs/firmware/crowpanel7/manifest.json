@@ -1,6 +1,6 @@
 {
   "name": "Claude_usage - firmware-direct (CrowPanel7)",
-  "version": "0.5.23",
+  "version": "0.9.0",
   "new_install_prompt_erase": true,
   "builds": [
     {

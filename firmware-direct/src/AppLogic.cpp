@@ -30,6 +30,24 @@ lv_obj_t *settingsOverlay = nullptr;
 unsigned long lastPollMs = 0;
 bool dashboardReady = false;
 std::function<void(WebServer &)> pendingScreenshotHandler;
+String deviceIp;  // set once in onWifiConnected() - see setupUrls() below
+
+// True once the first successful fetch has happened - gates
+// tickLiveStatus()'s countdown/uptime display so it doesn't tick toward
+// a poll that can't succeed while unconfigured/locked, and gets reset
+// on account reset so a stale countdown doesn't immediately overwrite
+// the "Not configured" message tickLiveStatus() would otherwise clobber
+// a second later.
+bool everUpdatedOnce = false;
+
+// mDNS ("claudeusage.local") doesn't resolve on every network/device
+// (some phones, some routers with mDNS reflection disabled, etc.) -
+// showing the raw IP alongside it gives a fallback that always works.
+String setupUrls() {
+  String s = "http://claudeusage.local/";
+  if (deviceIp.length() > 0) s += " or http://" + deviceIp + "/";
+  return s;
+}
 
 void closeSettingsOverlay() {
   if (settingsOverlay) {
@@ -46,7 +64,8 @@ void onForgetWifiClicked(lv_event_t *e) {
 void onResetAccountClicked(lv_event_t *e) {
   closeSettingsOverlay();
   ClaudeConfig::forget();
-  UsageDashboard::setStatusLine("Not configured - visit http://claudeusage.local/");
+  everUpdatedOnce = false;
+  UsageDashboard::setStatusLine("Not configured - visit " + setupUrls());
 }
 
 void onCloseSettingsClicked(lv_event_t *e) { closeSettingsOverlay(); }
@@ -73,7 +92,10 @@ void openSettingsOverlay() {
 
   lv_obj_t *urlLabel = lv_label_create(settingsOverlay);
   lv_obj_set_style_text_color(urlLabel, lv_color_hex(0x999999), 0);
-  lv_label_set_text(urlLabel, "Setup: http://claudeusage.local/");
+  lv_label_set_long_mode(urlLabel, LV_LABEL_LONG_WRAP);
+  lv_obj_set_width(urlLabel, lv_pct(85));
+  lv_obj_set_style_text_align(urlLabel, LV_TEXT_ALIGN_CENTER, 0);
+  lv_label_set_text(urlLabel, ("Setup: " + setupUrls()).c_str());
 
   lv_obj_t *forgetBtn = lv_btn_create(settingsOverlay);
   lv_obj_set_size(forgetBtn, lv_pct(80), LV_SIZE_CONTENT);
@@ -177,7 +199,33 @@ String formatUptime(unsigned long totalSeconds) {
   } else {
     snprintf(buf, sizeof(buf), "%lus", seconds);
   }
+  return String(buf) + " uptime";
+}
+
+// "M:SS" countdown to the next scheduled poll (lastPollMs is bumped to
+// millis() every time pollUsage() actually proceeds past its throttle
+// check, whether that's a real scheduled poll or a forced one - see
+// pollUsage() below - so this is always ticking down to whichever comes
+// first).
+String formatCountdown() {
+  long remainingMs = (long)(lastPollMs + POLL_INTERVAL_MS) - (long)millis();
+  unsigned long remainingSec = remainingMs > 0 ? (unsigned long)(remainingMs / 1000) : 0;
+  char buf[24];
+  snprintf(buf, sizeof(buf), "Next update in %lu:%02lu", remainingSec / 60, remainingSec % 60);
   return String(buf);
+}
+
+// Called every loop() iteration, throttled to ~1s - keeps the
+// countdown-to-next-poll and (on wide displays) uptime current between
+// the much-less-frequent setUpdatedLabel() calls (once per successful
+// fetch, ~5 minutes apart).
+void tickLiveStatus() {
+  static unsigned long lastTickMs = 0;
+  if (!everUpdatedOnce) return;
+  unsigned long now = millis();
+  if (now - lastTickMs < 1000) return;
+  lastTickMs = now;
+  UsageDashboard::setLiveStatus(formatCountdown(), formatUptime(now / 1000));
 }
 
 // Drains a completed background fetch, if any, onto the dashboard. Called
@@ -201,7 +249,8 @@ void checkFetchResult() {
   UsageDashboard::update(snap);
   ClaudeSetupServer::setLastFetchStatus(ok, snap.error);
   if (ok) {
-    UsageDashboard::setStatusLine("Updated " + formatUptime(millis() / 1000) + " uptime");
+    UsageDashboard::setUpdatedLabel();
+    everUpdatedOnce = true;
   }
 }
 
@@ -211,11 +260,11 @@ void pollUsage(bool force) {
   lastPollMs = now;
 
   if (!ClaudeConfig::isProvisioned()) {
-    UsageDashboard::setStatusLine("Not configured - visit http://claudeusage.local/");
+    UsageDashboard::setStatusLine("Not configured - visit " + setupUrls());
     return;
   }
   if (!ClaudeConfig::isUnlocked()) {
-    UsageDashboard::setStatusLine("Locked - visit http://claudeusage.local/ to unlock");
+    UsageDashboard::setStatusLine("Locked - visit " + setupUrls() + " to unlock");
     return;
   }
   if (fetchBusy || fetchRequested) return;  // one in flight/queued is enough
@@ -257,6 +306,7 @@ void setScreenshotHandler(std::function<void(WebServer &)> handler) {
 
 void onWifiConnected(const String &ip) {
   Serial.printf("Wi-Fi connected, IP: %s\n", ip.c_str());
+  deviceIp = ip;  // reconnects can rotate the DHCP lease - keep this current
   // Blocks briefly (first connect only - already-synced time returns
   // immediately on reconnects) so the very first pollUsage() below
   // doesn't race ahead of NTP finishing. Without this, "resets in" shows
@@ -307,6 +357,7 @@ void onWifiConnected(const String &ip) {
 
 void loop() {
   checkFetchResult();
+  tickLiveStatus();
   TouchWifiProvisioner::loop();
   if (TouchWifiProvisioner::isConnected()) {
     events();  // services ezTime's background NTP re-sync scheduling
