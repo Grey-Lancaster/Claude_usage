@@ -32,10 +32,15 @@
 #define XPT2046_CS 12
 #define XPT2046_IRQ 16
 
-// From esp32tft3.yaml's (disabled) touchscreen block - calibration was
-// defined there but the block itself was commented out, so these values
-// come from an earlier test rather than a confirmed-working config.
-// Revisit if touch feels off once this is actually on the hardware.
+// esp32tft3.yaml's touchscreen block (source of XPT2046_CS/IRQ above) was
+// entirely commented out, so touch was never actually exercised on this
+// device - and its calibration values turned out to be ESPHome's own
+// xpt2046 doc example almost verbatim (x_max/y_max identical to the doc,
+// mins rounded to 0 rather than the doc's 280/340), not a real on-device
+// calibration pass. Left as a placeholder starting point - expect to
+// redo this for real once the hardware's in hand: read raw ts.getPoint()
+// values over Serial while touching each corner of the screen, then
+// replace these four with what you actually measure.
 #define TOUCH_X_MIN 0
 #define TOUCH_X_MAX 3860
 #define TOUCH_Y_MIN 0
