@@ -20,17 +20,12 @@ different board-bring-up files:
   + `src/LovyanGFX_Driver_CrowPanel7.h`. Verified on real hardware - the
   config (partition table, PSRAM toolchain fork, LovyanGFX panel timings)
   is copied from TouchWifiProvisioner's `CrowPanel7_RollingClock` example.
-- **`d1mini`** - Wemos/LOLIN D1 mini (ESP32 clone, e.g. MH-ET LIVE
-  MiniKit) + TFT 2.4" Touch Shield V1.0 (ILI9341 320x240 SPI, XPT2046
-  touch). `src/main_d1mini.cpp`. Compiles clean but **hasn't been flashed
-  to real hardware yet** - the shield's SPI-bus pins (SCK/MISO/MOSI) are
-  consistently documented across every "D1 mini ESP32" clone (they're the
-  ESP32's own hardware VSPI default pins, which is the whole point of that
-  clone design), but its CS/DC pins are this project's best-available
-  mapping from public docs, not something verified against this specific
-  board yet - see `main_d1mini.cpp`'s header comment for the full
-  derivation and what to check first if the display or touch doesn't come
-  up.
+- **`d1mini`** - Wemos/LOLIN D1 mini (MH-ET LIVE MiniKit ESP32 clone) +
+  TFT 2.4" Touch Shield V1.0 (ILI9341 320x240 SPI, XPT2046 touch).
+  `src/main_d1mini.cpp`. Every pin is confirmed from this exact physical
+  board's prior ESPHome config (`esp32tft3.yaml`), rediscovered after
+  this port was first written from public docs alone - but **this
+  firmware hasn't actually been flashed to it yet**.
 
 All boards currently register the same `claudeusage`/`ClaudeUsage`
 mDNS/OTA hostname - fine with only one on your network at a time, but

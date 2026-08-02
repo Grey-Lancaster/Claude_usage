@@ -1,24 +1,20 @@
 // Claude_usage - firmware-direct (Wemos/LOLIN D1 mini + TFT 2.4" Touch
-// Shield V1.0, ESP32 clone of the D1 mini form factor)
+// Shield V1.0, ESP32 clone of the D1 mini form factor - specifically an
+// MH-ET LIVE MiniKit)
 //
 // Board bring-up only - see main.cpp's header comment for what that means
 // and what this dashboard actually does. Same TFT_eSPI/XPT2046 stack as
 // the CYD, but wired very differently: this shield puts the TFT and the
 // touch controller on the *same* physical SPI bus (shared SCK/MOSI/MISO,
-// separate CS lines) rather than two independent buses, and its default
-// jumpering (per the shield's own docs - see platformio.ini's [env:d1mini]
-// comment) leaves the touch IRQ line and the backlight both unconnected.
+// separate CS lines) rather than two independent buses.
 //
-// PIN MAPPING CAVEAT: the "D1 mini ESP32" clone family (MH-ET LIVE MiniKit
-// and its many rebrands) is not pin-identical across manufacturers - only
-// the SPI-bus pins (D5/D6/D7 -> GPIO18/19/23, matching the ESP32's own
-// hardware VSPI defaults, which is exactly why these clones exist) are
-// consistently documented everywhere. The D0/D3/D8 assignments below
-// (TFT_CS/TS_CS/TFT_DC) are this project's best-available mapping,
-// cross-checked against multiple independent sources but NOT verified
-// against this specific physical board yet. If the display stays blank
-// or touch doesn't register once this is actually flashed and tested,
-// start here - see platformio.ini for the full build_flags.
+// Every pin below (including TFT_MISO/MOSI/SCLK/CS/DC/RST - see
+// platformio.ini's [env:d1mini]) is confirmed from this exact physical
+// device's prior ESPHome config (esp32tft3.yaml), which the user
+// rediscovered after this port was first written from best-available
+// public docs alone - those docs got the SPI bus and TFT_CS/TFT_DC right
+// but had no way to know TFT_RST was a real pin (not tied to board reset)
+// or where the touch CS/IRQ lines landed.
 #include <Arduino.h>
 #include <SPI.h>
 #include <TFT_eSPI.h>
@@ -32,22 +28,24 @@
 #include "boot_logo_cyd.h"
 
 // Same physical bus as the display (see platformio.ini's TFT_MISO/MOSI/
-// SCLK) - only the touch chip-select is a separate pin. No IRQ line is
-// broken out on this shield by default, so touches are read via SPI
-// polling instead of an interrupt (XPT2046_Touchscreen supports this -
-// just construct it with only a CS pin).
-#define XPT2046_CS 17  // D3
+// SCLK) - only chip-select differs.
+#define XPT2046_CS 12
+#define XPT2046_IRQ 16
 
-#define TOUCH_X_MIN 200
-#define TOUCH_X_MAX 3700
-#define TOUCH_Y_MIN 240
-#define TOUCH_Y_MAX 3800
+// From esp32tft3.yaml's (disabled) touchscreen block - calibration was
+// defined there but the block itself was commented out, so these values
+// come from an earlier test rather than a confirmed-working config.
+// Revisit if touch feels off once this is actually on the hardware.
+#define TOUCH_X_MIN 0
+#define TOUCH_X_MAX 3860
+#define TOUCH_Y_MIN 0
+#define TOUCH_Y_MAX 3860
 
 static const uint16_t SCREEN_W = 320;
 static const uint16_t SCREEN_H = 240;
 
 TFT_eSPI tft = TFT_eSPI();
-XPT2046_Touchscreen ts(XPT2046_CS);
+XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
 
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t buf1[SCREEN_W * 40];

@@ -246,10 +246,9 @@
       <p>
         Same standalone app as the CYD build above, ported to the 2.4"
         320x240 ILI9341/XPT2046 touch shield on a D1-mini-footprint ESP32
-        board. Compiles clean, but <strong>hasn't been flashed to real
-        hardware yet</strong> - some of the shield's pin assignments vary
-        between "D1 mini ESP32" clone manufacturers, so display or touch
-        may need a pin tweak on first boot.
+        board (MH-ET LIVE MiniKit). Pin mapping is confirmed from this
+        exact board's prior ESPHome config, but <strong>this firmware
+        hasn't been flashed to it yet</strong>.
       </p>
       <esp-web-install-button manifest="firmware/d1mini/manifest.json">
         <button slot="activate">Install firmware-direct (D1 mini, beta)</button>
