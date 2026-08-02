@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.4] - 2026-08-02
+
+### Added
+- `CHANGELOG.md` and a GitHub Actions release workflow - pushing a
+  "vX.Y.Z" tag now auto-publishes a GitHub Release from that version's
+  changelog section, no manual `gh`/web UI step needed
+
 ## [0.9.0] - 2026-08-02
 
 First tagged release - this entry covers the project's full feature set
