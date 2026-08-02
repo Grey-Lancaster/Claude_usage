@@ -1,0 +1,46 @@
+name: Release
+
+# Publishes a GitHub Release from CHANGELOG.md whenever a "vX.Y.Z" tag is
+# pushed - the release body is whichever section of CHANGELOG.md matches
+# that version, extracted with awk rather than a third-party action, so
+# there's no dependency on a marketplace action's own release cadence or
+# input-format changes. Modeled after TouchWifiProvisioner's release
+# workflow (github.com/Grey-Lancaster/TouchWifiProvisioner).
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract this version's changelog section
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if ($0 ~ "\\[" ver "\\]") { found=1; next }
+            }
+            found { print }
+          ' CHANGELOG.md > release_notes.md
+
+          if [ ! -s release_notes.md ]; then
+            echo "No CHANGELOG.md section found for version $VERSION - failing so this doesn't publish an empty release." >&2
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
