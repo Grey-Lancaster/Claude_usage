@@ -29,29 +29,34 @@
 #include "boot_logo_cyd.h"
 
 // Same physical bus as the display (see platformio.ini's TFT_MISO/MOSI/
-// SCLK) - only chip-select differs.
+// SCLK) - only chip-select differs. No IRQ pin: neither Wemos's own
+// reference sketch for this shield family (both its D1-mini and D32 Pro
+// pin presets) nor the shield's official pin table wire one up - touch
+// works fine without it since XPT2046_Touchscreen::touched() does its
+// own SPI pressure read regardless (see XPT2046_Touchscreen.cpp's
+// update()), it just can't use the interrupt-driven fast path. An
+// earlier version of this file added GPIO16 as IRQ based on the
+// commented-out (never live) touchscreen block in esp32tft3.yaml -
+// removed now that the manufacturer's own examples contradict it.
 #define XPT2046_CS 12
-#define XPT2046_IRQ 16
 
-// esp32tft3.yaml's touchscreen block (source of XPT2046_CS/IRQ above) was
-// entirely commented out, so touch was never actually exercised on this
-// device - and its calibration values turned out to be ESPHome's own
-// xpt2046 doc example almost verbatim (x_max/y_max identical to the doc,
-// mins rounded to 0 rather than the doc's 280/340), not a real on-device
-// calibration pass. Left as a placeholder starting point - expect to
-// redo this for real once the hardware's in hand: read raw ts.getPoint()
-// values over Serial while touching each corner of the screen, then
-// replace these four with what you actually measure.
-#define TOUCH_X_MIN 0
-#define TOUCH_X_MAX 3860
-#define TOUCH_Y_MIN 0
-#define TOUCH_Y_MAX 3860
+// Measured directly off the physical panel via runCalibrationScreen()
+// (see below) - raw readings were top-left (3797, 397), top-right
+// (384, 474), bottom-right (422, 3765). X is inverted relative to
+// screen orientation (raw decreases left-to-right); Y is not. Values
+// below pad ~100 past the measured extremes so a touch right at the
+// physical edge doesn't fall just outside the calibrated range -
+// touchpad_read() also clamps the final result as a backstop.
+#define TOUCH_X_MIN 3900  // raw at screen x=0 (left edge)
+#define TOUCH_X_MAX 300   // raw at screen x=SCREEN_W (right edge)
+#define TOUCH_Y_MIN 350   // raw at screen y=0 (top edge)
+#define TOUCH_Y_MAX 3850  // raw at screen y=SCREEN_H (bottom edge)
 
 static const uint16_t SCREEN_W = 320;
 static const uint16_t SCREEN_H = 240;
 
 TFT_eSPI tft = TFT_eSPI();
-XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
+XPT2046_Touchscreen ts(XPT2046_CS);
 
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t buf1[SCREEN_W * 40];
@@ -74,8 +79,10 @@ static void touchpad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data) {
   }
   TS_Point p = ts.getPoint();
   data->state = LV_INDEV_STATE_PR;
-  data->point.x = map(p.x, TOUCH_X_MIN, TOUCH_X_MAX, 0, SCREEN_W);
-  data->point.y = map(p.y, TOUCH_Y_MIN, TOUCH_Y_MAX, 0, SCREEN_H);
+  // Clamped as a backstop - map() alone can extrapolate past 0/SCREEN_W-1
+  // for a touch right at (or just past) the calibrated physical edge.
+  data->point.x = constrain(map(p.x, TOUCH_X_MIN, TOUCH_X_MAX, 0, SCREEN_W), 0, SCREEN_W - 1);
+  data->point.y = constrain(map(p.y, TOUCH_Y_MIN, TOUCH_Y_MAX, 0, SCREEN_H), 0, SCREEN_H - 1);
 }
 
 // Boot splash: same pushColors(..., swap=true) call disp_flush() already

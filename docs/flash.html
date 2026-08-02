@@ -239,26 +239,24 @@
       </div>
     </div>
 
-    <div class="board-card beta-card">
-      <div class="beta-badge">BETA - UNTESTED ON HARDWARE</div>
+    <div class="board-card">
       <h2>firmware-direct &mdash; D1 mini + TFT Shield</h2>
       <div class="subtitle">Wemos/LOLIN D1 mini (ESP32 clone) + TFT 2.4" Touch Shield V1.0</div>
       <p>
         Same standalone app as the CYD build above, ported to the 2.4"
         320x240 ILI9341/XPT2046 touch shield on a D1-mini-footprint ESP32
-        board (MH-ET LIVE MiniKit). Pin mapping is confirmed from this
-        exact board's prior ESPHome config, but <strong>this firmware
-        hasn't been flashed to it yet</strong>.
+        board (MH-ET LIVE MiniKit). Verified on real hardware, display
+        and touch both confirmed working.
       </p>
       <esp-web-install-button manifest="firmware/d1mini/manifest.json">
-        <button slot="activate">Install firmware-direct (D1 mini, beta)</button>
+        <button slot="activate">Install firmware-direct (D1 mini)</button>
         <span slot="unsupported">Your browser doesn't support Web Serial - use desktop Chrome or Edge.</span>
         <span slot="not-allowed">This page needs to be loaded over HTTPS to flash (it already is here).</span>
       </esp-web-install-button>
       <div class="board-note">
         See the
         <a href="https://github.com/Grey-Lancaster/Claude_usage/tree/main/firmware-direct#supported-boards">firmware-direct README</a>
-        for the pin-mapping caveat.
+        for board details.
       </div>
     </div>
 

@@ -68,9 +68,8 @@ touchscreen Wi-Fi provisioning from
   [`firmware-direct`'s README](firmware-direct#supported-boards).
 - **Wemos/LOLIN D1 mini (MH-ET LIVE MiniKit ESP32 clone) + TFT 2.4"
   Touch Shield V1.0** (ILI9341 320x240 SPI, XPT2046 touch) -
-  `firmware-direct` only (the `d1mini` PlatformIO environment). Pin
-  mapping confirmed from this exact board's prior ESPHome config, but
-  **this firmware hasn't been flashed to it yet** - see
+  `firmware-direct` only (the `d1mini` PlatformIO environment). Verified
+  on real hardware, display and touch both working - see
   [`firmware-direct`'s README](firmware-direct#supported-boards).
 
 Pin mapping lives in each variant's `platformio.ini`.

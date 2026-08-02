@@ -22,10 +22,13 @@ different board-bring-up files:
   is copied from TouchWifiProvisioner's `CrowPanel7_RollingClock` example.
 - **`d1mini`** - Wemos/LOLIN D1 mini (MH-ET LIVE MiniKit ESP32 clone) +
   TFT 2.4" Touch Shield V1.0 (ILI9341 320x240 SPI, XPT2046 touch).
-  `src/main_d1mini.cpp`. Every pin is confirmed from this exact physical
-  board's prior ESPHome config (`esp32tft3.yaml`), rediscovered after
-  this port was first written from public docs alone - but **this
-  firmware hasn't actually been flashed to it yet**.
+  `src/main_d1mini.cpp`. Verified on real hardware - display and touch
+  both confirmed working; touch's IRQ pin (an unverified guess from a
+  never-live ESPHome config block) turned out to be wrong and was
+  dropped entirely, matching Wemos's own reference sketch for this
+  shield, which doesn't wire an IRQ pin either. `TOUCH_X_MIN/MAX` and
+  `TOUCH_Y_MIN/MAX` are real measured calibration values, not a
+  placeholder.
 
 All boards currently register the same `claudeusage`/`ClaudeUsage`
 mDNS/OTA hostname - fine with only one on your network at a time, but
