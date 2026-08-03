@@ -215,7 +215,8 @@ void handleUpdatePage() {
       "<h1>Firmware update</h1>"
       "<p>Select a firmware.bin built for this board (<code>pio run</code>, "
       "not the merged \"- Bootable\" image - this only replaces the app, not the bootloader/partitions).</p>"
-      "<form method='POST' action='/update' enctype='multipart/form-data'>"
+      "<form method='POST' action='/update' enctype='multipart/form-data' "
+      "onsubmit=\"" BUSY_BUTTON_JS("Uploading...") "\">"
       "<input type='file' name='firmware' accept='.bin' required>"
       "<button type='submit'>Upload &amp; flash</button></form>");
 }

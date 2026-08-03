@@ -1,6 +1,6 @@
 {
   "name": "Claude_usage - firmware-direct (D1 mini + TFT 2.4 Touch Shield)",
-  "version": "0.9.16",
+  "version": "0.9.20",
   "new_install_prompt_erase": true,
   "builds": [
     {

@@ -3,6 +3,18 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.20] - 2026-08-03
+
+### Fixed
+- The on-device web setup page's "Upload & flash" button (firmware
+  OTA update form) had no disable-on-submit guard, unlike the
+  provision/unlock forms which already do this. On a slow upload,
+  repeat clicks each fired a new `POST /update` while the first was
+  still in flight - concurrent uploads left the device's
+  `Update.begin()` in a stuck state and OTA updates failed with
+  "Couldn't start (Update.begin() failed)" until a power cycle.
+  The button now disables and reads "Uploading..." on the first click.
+
 ## [0.9.16] - 2026-08-03
 
 ### Fixed
