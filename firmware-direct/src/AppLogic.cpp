@@ -211,7 +211,10 @@ String formatCountdown() {
   long remainingMs = (long)(lastPollMs + POLL_INTERVAL_MS) - (long)millis();
   unsigned long remainingSec = remainingMs > 0 ? (unsigned long)(remainingMs / 1000) : 0;
   char buf[24];
-  snprintf(buf, sizeof(buf), "Next update in %lu:%02lu", remainingSec / 60, remainingSec % 60);
+  // "Next update in M:SS" was wide enough to wrap inside the countdown
+  // label's fixed-width box on the small displays (CYD/D1 mini) - "Next:"
+  // keeps the same meaning in about half the characters.
+  snprintf(buf, sizeof(buf), "Next: %lu:%02lu", remainingSec / 60, remainingSec % 60);
   return String(buf);
 }
 

@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.24] - 2026-08-03
+
+### Fixed
+- The countdown label ("Next update in M:SS") was wide enough to wrap
+  onto two lines inside its fixed-width box on CYD/D1 mini, once the
+  status row actually became visible there. Shortened to "Next: M:SS" -
+  wording only, no layout/alignment change, so CrowPanel7's 3-segment
+  row is unaffected.
+
 ## [0.9.20] - 2026-08-03
 
 ### Fixed
