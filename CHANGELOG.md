@@ -3,6 +3,19 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.8] - 2026-08-02
+
+### Added
+- The header mascot now does a little shake each time an update lands
+
+### Fixed
+- The mascot animation originally rotated (transform_angle), but that
+  flickered instead of rotating smoothly on real hardware - an LVGL 8.x
+  rendering quirk with rotating an object that has children (the eyes).
+  Switched to a horizontal shake (transform_translate_x), which renders
+  correctly since translation doesn't hit the same clipping/layer edge
+  cases rotation does.
+
 ## [0.9.4] - 2026-08-02
 
 ### Added

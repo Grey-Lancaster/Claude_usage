@@ -243,11 +243,6 @@ void build(lv_obj_t *parent) {
   lv_obj_set_style_radius(mascot, largeDisplay ? 8 : 5, 0);
   lv_obj_set_style_bg_color(mascot, lv_color_hex(0xE0795A), 0);
   lv_obj_set_style_bg_opa(mascot, LV_OPA_COVER, 0);
-  // Rotate around its own center (default pivot is the top-left corner)
-  // - see wiggleMascot() below, which spins this a few degrees each
-  // update.
-  lv_obj_set_style_transform_pivot_x(mascot, mascotW / 2, 0);
-  lv_obj_set_style_transform_pivot_y(mascot, mascotH / 2, 0);
 
   int eyeW = largeDisplay ? 7 : 4;
   int eyeH = largeDisplay ? 13 : 8;
@@ -399,17 +394,23 @@ void update(const Snapshot &snap) {
   }
 }
 
-// A little celebratory wiggle on the header mascot each time an update
+// A little celebratory shake on the header mascot each time an update
 // lands - three chained short animations (rather than one anim with
 // playback, which just reverses back to its own start value) so the
-// motion actually goes center -> counter-clockwise -> clockwise ->
-// center instead of a single there-and-back swing.
+// motion actually goes center -> left -> right -> center instead of a
+// single there-and-back swing. Shakes via transform_translate_x rather
+// than a real rotation (transform_angle): the mascot lives in a flex
+// row, so a plain position set would fight the layout engine, and
+// rotating an object with children (the eyes) hit an LVGL 8.x rendering
+// quirk on real hardware (flickered instead of smoothly rotating).
+// translate_x is a pure render-time offset - doesn't touch layout, and
+// carries child objects along with zero clipping/layer edge cases.
 void mascotWiggleLeg3(lv_anim_t *) {
   static lv_anim_t a;
   lv_anim_init(&a);
   lv_anim_set_var(&a, mascot);
-  lv_anim_set_exec_cb(&a, [](void *obj, int32_t v) { lv_obj_set_style_transform_angle((lv_obj_t *)obj, v, 0); });
-  lv_anim_set_values(&a, 120, 0);
+  lv_anim_set_exec_cb(&a, [](void *obj, int32_t v) { lv_obj_set_style_translate_x((lv_obj_t *)obj, v, 0); });
+  lv_anim_set_values(&a, 5, 0);
   lv_anim_set_time(&a, 150);
   lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
   lv_anim_start(&a);
@@ -419,8 +420,8 @@ void mascotWiggleLeg2(lv_anim_t *) {
   static lv_anim_t a;
   lv_anim_init(&a);
   lv_anim_set_var(&a, mascot);
-  lv_anim_set_exec_cb(&a, [](void *obj, int32_t v) { lv_obj_set_style_transform_angle((lv_obj_t *)obj, v, 0); });
-  lv_anim_set_values(&a, -120, 120);
+  lv_anim_set_exec_cb(&a, [](void *obj, int32_t v) { lv_obj_set_style_translate_x((lv_obj_t *)obj, v, 0); });
+  lv_anim_set_values(&a, -5, 5);
   lv_anim_set_time(&a, 250);
   lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
   lv_anim_set_ready_cb(&a, mascotWiggleLeg3);
@@ -432,8 +433,8 @@ void wiggleMascot() {
   static lv_anim_t a;
   lv_anim_init(&a);
   lv_anim_set_var(&a, mascot);
-  lv_anim_set_exec_cb(&a, [](void *obj, int32_t v) { lv_obj_set_style_transform_angle((lv_obj_t *)obj, v, 0); });
-  lv_anim_set_values(&a, 0, -120);  // angle units are 0.1deg, so -120/120 = 12 degrees
+  lv_anim_set_exec_cb(&a, [](void *obj, int32_t v) { lv_obj_set_style_translate_x((lv_obj_t *)obj, v, 0); });
+  lv_anim_set_values(&a, 0, -5);  // pixels
   lv_anim_set_time(&a, 150);
   lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
   lv_anim_set_ready_cb(&a, mascotWiggleLeg2);
