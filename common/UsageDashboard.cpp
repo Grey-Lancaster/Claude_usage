@@ -410,19 +410,25 @@ void mascotWiggleLeg3(lv_anim_t *) {
   lv_anim_init(&a);
   lv_anim_set_var(&a, mascot);
   lv_anim_set_exec_cb(&a, [](void *obj, int32_t v) { lv_obj_set_style_translate_x((lv_obj_t *)obj, v, 0); });
-  lv_anim_set_values(&a, 5, 0);
+  lv_anim_set_values(&a, -5, 0);
   lv_anim_set_time(&a, 150);
   lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
   lv_anim_start(&a);
 }
 
-void mascotWiggleLeg2(lv_anim_t *) {
+// The bulk of the dance: oscillates -5<->5 via playback+repeat instead of a
+// long manual leg chain, then hands off to leg3 to settle back to center.
+// A repeat_count cycle (forward+playback) always ends back at its start
+// value (-5 here), so leg3 picks up from -5 the same way it did before.
+void mascotWiggleOscillate(lv_anim_t *) {
   static lv_anim_t a;
   lv_anim_init(&a);
   lv_anim_set_var(&a, mascot);
   lv_anim_set_exec_cb(&a, [](void *obj, int32_t v) { lv_obj_set_style_translate_x((lv_obj_t *)obj, v, 0); });
   lv_anim_set_values(&a, -5, 5);
-  lv_anim_set_time(&a, 250);
+  lv_anim_set_time(&a, 200);
+  lv_anim_set_playback_time(&a, 200);
+  lv_anim_set_repeat_count(&a, 9);  // 9 * (200+200) = 3600ms
   lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
   lv_anim_set_ready_cb(&a, mascotWiggleLeg3);
   lv_anim_start(&a);
@@ -437,7 +443,7 @@ void wiggleMascot() {
   lv_anim_set_values(&a, 0, -5);  // pixels
   lv_anim_set_time(&a, 150);
   lv_anim_set_path_cb(&a, lv_anim_path_ease_in_out);
-  lv_anim_set_ready_cb(&a, mascotWiggleLeg2);
+  lv_anim_set_ready_cb(&a, mascotWiggleOscillate);
   lv_anim_start(&a);
 }
 

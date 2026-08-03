@@ -3,6 +3,13 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.12] - 2026-08-03
+
+### Changed
+- The mascot dance now runs for a full ~4 seconds (was under a second):
+  oscillates several times before settling back to center, instead of a
+  single quick shake
+
 ## [0.9.8] - 2026-08-02
 
 ### Added
