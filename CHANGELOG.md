@@ -3,6 +3,18 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.16] - 2026-08-03
+
+### Fixed
+- CYD/D1 mini (320x240): the status row ("Updated" / next-update
+  countdown) was rendering entirely below the visible screen - header +
+  the 3 meter cards alone already exceeded 240px of height at the
+  padding/font sizes those boards shared with CrowPanel7's much taller
+  display, and root's non-scrollable container silently clipped the
+  rest. Tightened padding, bar height, and the gear button's size on
+  the small-display layout path only (CrowPanel7 is untouched) to
+  reclaim enough room for the status row to actually show.
+
 ## [0.9.12] - 2026-08-03
 
 ### Changed

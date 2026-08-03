@@ -56,7 +56,7 @@ void styleCard(lv_obj_t *card) {
   lv_obj_set_style_bg_color(card, lv_color_hex(0x1c1c1c), 0);
   lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
   lv_obj_set_style_radius(card, largeDisplay ? 16 : 10, 0);
-  lv_obj_set_style_pad_all(card, largeDisplay ? 14 : 8, 0);
+  lv_obj_set_style_pad_all(card, largeDisplay ? 14 : 4, 0);
   lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
 }
 
@@ -86,8 +86,8 @@ Meter makeMeter(lv_obj_t *parent, const char *name) {
 
   m.bar = lv_bar_create(card);
   lv_obj_clear_flag(m.bar, LV_OBJ_FLAG_CLICKABLE);  // lv_bar doesn't clear this itself either; see styleCard() comment
-  lv_obj_set_size(m.bar, lv_pct(100), largeDisplay ? 18 : 10);
-  lv_obj_set_style_pad_top(m.bar, largeDisplay ? 8 : 6, 0);
+  lv_obj_set_size(m.bar, lv_pct(100), largeDisplay ? 18 : 7);
+  lv_obj_set_style_pad_top(m.bar, largeDisplay ? 8 : 2, 0);
   lv_obj_set_style_bg_color(m.bar, lv_color_hex(0x3a3a3a), LV_PART_MAIN);
   lv_obj_set_style_bg_opa(m.bar, LV_OPA_COVER, LV_PART_MAIN);
   lv_bar_set_range(m.bar, 0, 100);
@@ -97,7 +97,7 @@ Meter makeMeter(lv_obj_t *parent, const char *name) {
   lv_label_set_text(m.subLabel, "");
   lv_obj_set_style_text_color(m.subLabel, lv_color_hex(0x999999), 0);
   lv_obj_set_style_text_font(m.subLabel, largeDisplay ? &lv_font_montserrat_16 : &lv_font_montserrat_14, 0);
-  lv_obj_set_style_pad_top(m.subLabel, largeDisplay ? 6 : 2, 0);
+  lv_obj_set_style_pad_top(m.subLabel, largeDisplay ? 6 : 0, 0);
 
   return m;
 }
@@ -204,9 +204,13 @@ void build(lv_obj_t *parent) {
   lv_obj_clear_flag(root, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_style_bg_color(root, lv_color_black(), 0);
   lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-  lv_obj_set_style_pad_all(root, largeDisplay ? 16 : 8, 0);
+  // Small displays (CYD/D1 mini, 320x240) need every spare pixel: header +
+  // 3 meter cards + the status row don't fit in 240px at the same padding
+  // used on the 800px-wide CrowPanel7, so the small-display branch here and
+  // in makeMeter() below is deliberately tighter than largeDisplay's.
+  lv_obj_set_style_pad_all(root, largeDisplay ? 16 : 4, 0);
   lv_obj_set_flex_flow(root, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_style_pad_row(root, largeDisplay ? 10 : 6, 0);
+  lv_obj_set_style_pad_row(root, largeDisplay ? 10 : 3, 0);
   // Tap-to-refresh: none of root's children (title, meter cards) are
   // themselves clickable except the gear button, so LVGL's hit-testing
   // falls through to root - the nearest clickable ancestor - for a tap
@@ -265,7 +269,7 @@ void build(lv_obj_t *parent) {
   lv_obj_set_size(eyeR, eyeW, eyeH);
   lv_obj_set_pos(eyeR, largeDisplay ? 31 : 18, largeDisplay ? 12 : 7);
 
-  int gearSize = largeDisplay ? 46 : 34;
+  int gearSize = largeDisplay ? 46 : 28;
   lv_obj_t *gearBtn = lv_btn_create(headerRow);
   lv_obj_set_size(gearBtn, gearSize, gearSize);
   lv_obj_set_style_radius(gearBtn, gearSize / 2, 0);
