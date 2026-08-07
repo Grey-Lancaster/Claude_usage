@@ -1,6 +1,7 @@
 #include "AppLogic.h"
 
 #include <ArduinoOTA.h>
+#include <esp_system.h>
 #include <ezTime.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -39,6 +40,31 @@ String deviceIp;  // set once in onWifiConnected() - see setupUrls() below
 // the "Not configured" message tickLiveStatus() would otherwise clobber
 // a second later.
 bool everUpdatedOnce = false;
+
+// The device relocks (in-RAM plaintext cookie wiped) on every boot by
+// design - see ClaudeConfig.h - so a "Locked" screen the user didn't
+// trigger themselves (forget/reset) means it rebooted, not that some
+// unlock session timed out (there is no such timeout - unlocked only
+// ever flips false in ClaudeConfig::forget()). Captured once at startup
+// and shown on the lock screen itself, since serial capture on this
+// hardware has proven too unreliable (auto-reset-on-connect eats the
+// boot-time window) to rely on catching this live over USB.
+String resetReasonText() {
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON: return "power-on";
+    case ESP_RST_EXT: return "external reset";
+    case ESP_RST_SW: return "firmware reboot";  // e.g. after an OTA update
+    case ESP_RST_PANIC: return "crash";
+    case ESP_RST_INT_WDT: return "watchdog (interrupt)";
+    case ESP_RST_TASK_WDT: return "watchdog (task)";
+    case ESP_RST_WDT: return "watchdog";
+    case ESP_RST_DEEPSLEEP: return "deep sleep wake";
+    case ESP_RST_BROWNOUT: return "brownout (power dip)";
+    case ESP_RST_SDIO: return "SDIO";
+    default: return "unknown";
+  }
+}
+String bootReason;
 
 // mDNS ("claudeusage.local") doesn't resolve on every network/device
 // (some phones, some routers with mDNS reflection disabled, etc.) -
@@ -267,7 +293,7 @@ void pollUsage(bool force) {
     return;
   }
   if (!ClaudeConfig::isUnlocked()) {
-    UsageDashboard::setStatusLine("Locked - visit " + setupUrls() + " to unlock");
+    UsageDashboard::setStatusLine("Locked (" + bootReason + ") - visit " + setupUrls() + " to unlock");
     return;
   }
   if (fetchBusy || fetchRequested) return;  // one in flight/queued is enough
@@ -297,6 +323,9 @@ void manualRefresh() {
 } // namespace
 
 void begin() {
+  bootReason = resetReasonText();
+  Serial.printf("[boot] reset reason: %s\n", bootReason.c_str());
+
   // Pinned to core 0 - Arduino's setup()/loop() (and therefore
   // lv_timer_handler()) run as "loopTask" on core 1 by default, so this
   // keeps the network fetch fully off the UI's core.

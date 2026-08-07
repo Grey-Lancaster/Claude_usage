@@ -3,6 +3,17 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.28] - 2026-08-03
+
+### Added
+- The lock screen now shows the ESP32's boot reset reason - e.g.
+  "Locked (brownout (power dip)) - visit ... to unlock". The device
+  relocks (in-RAM plaintext wiped) on every boot by design - there is
+  no re-lock timeout - so a "Locked" screen you didn't trigger
+  yourself means it rebooted; this makes it possible to tell whether
+  that was a brownout, a crash, a watchdog reset, or a normal power
+  cycle at a glance, without needing a serial cable.
+
 ## [0.9.24] - 2026-08-03
 
 ### Fixed
