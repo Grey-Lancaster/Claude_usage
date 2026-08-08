@@ -1,6 +1,7 @@
 #include "AppLogic.h"
 
 #include <ArduinoOTA.h>
+#include <esp_log.h>
 #include <esp_system.h>
 #include <ezTime.h>
 #include <freertos/FreeRTOS.h>
@@ -275,6 +276,15 @@ void checkFetchResult() {
 
   if (!ready) return;
   Serial.printf("[app] pollUsage: fetch ok=%d snap.valid=%d snap.error='%s'\n", ok, snap.valid, snap.error.c_str());
+  // Diagnostic for the 2026-08-07 crash investigation: a fresh
+  // WiFiClientSecure+HTTPClient is created and torn down every poll (see
+  // ClaudeUsageClient::fetch()'s comment on why a fresh TLS connection is
+  // needed per attempt), and repeated large mbedTLS alloc/free cycles are
+  // a known way to fragment the ESP32 heap over many hours even without an
+  // outright leak. getFreeHeap() alone can look fine while getMaxAllocHeap()
+  // (largest single free block) quietly shrinks - logging both makes that
+  // distinction visible in hindsight if a crash follows.
+  Serial.printf("[app] heap: free=%u maxAlloc=%u\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
   UsageDashboard::update(snap);
   ClaudeSetupServer::setLastFetchStatus(ok, snap.error);
   if (ok) {
@@ -325,6 +335,20 @@ void manualRefresh() {
 void begin() {
   bootReason = resetReasonText();
   Serial.printf("[boot] reset reason: %s\n", bootReason.c_str());
+
+  // 2026-08-07 crash: full backtrace traced an abort() in ESP-IDF's
+  // lock_init_generic (newlib/locks.c) back through esp_log_write, called
+  // from the vendored mDNS component's own internal logging inside
+  // _udp_recv (mdns_networking_lwip.c) on the LWIP tcpip_thread - i.e. an
+  // unrelated background thread's routine debug/info log about a UDP
+  // packet, at the exact moment its first-ever printf/UART-lock lazy-init
+  // landed on a heap too fragmented (see the heap logging in
+  // checkFetchResult() above) to allocate the lock's semaphore. This mutes
+  // ESP-IDF's own internal component logs (WiFi/mDNS/LWIP/etc.) - none of
+  // this project's own Serial.printf output goes through esp_log, so
+  // nothing here is lost - which removes that exact trigger regardless of
+  // whether the heap-fragmentation theory is the whole story.
+  esp_log_level_set("*", ESP_LOG_WARN);
 
   // Pinned to core 0 - Arduino's setup()/loop() (and therefore
   // lv_timer_handler()) run as "loopTask" on core 1 by default, so this

@@ -3,6 +3,27 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.32] - 2026-08-07
+
+### Fixed
+- Root-caused the intermittent "crash" reset reason a CYD unit was
+  hitting after hours of uptime: a live serial capture caught a full
+  backtrace showing `abort()` in ESP-IDF's `lock_init_generic`,
+  triggered by the vendored mDNS component's own internal debug
+  logging (from the background LWIP thread, not this project's code)
+  failing to lazily allocate a lock - most likely because the heap had
+  fragmented after many hours of the required fresh-TLS-connection
+  design (see ClaudeUsageClient::fetch()) repeatedly allocating and
+  freeing large mbedTLS buffers. Muted ESP-IDF's internal component
+  logging (WiFi/mDNS/LWIP/etc via esp_log_level_set) to remove that
+  specific trigger - none of this project's own Serial output goes
+  through esp_log, so nothing is lost.
+
+### Added
+- Free-heap and largest-free-block logged on every poll, so a future
+  crash can be correlated against the actual heap trend instead of
+  guessing.
+
 ## [0.9.28] - 2026-08-03
 
 ### Added
