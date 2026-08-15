@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.36] - 2026-08-08
+
+### Added
+- Physical BOOT button (GPIO0, all three boards): a short press opens
+  an on-device System Info overlay (firmware version, IP, WiFi signal,
+  free heap, uptime, account locked/unlocked/not-configured status,
+  last boot reset reason); holding it 10 seconds wipes the WiFi
+  credentials and the Claude account and reboots - a factory reset
+  that still works even on a unit whose touchscreen is too broken to
+  reach the on-screen Settings buttons. Ported from the same
+  short-press/hold pattern in a separate Weather project.
+- `firmware-direct/include/Version.h` - the firmware now knows its own
+  version number (shown on the new System Info screen), not just the
+  OTA manifest.json files.
+
 ## [0.9.32] - 2026-08-07
 
 ### Fixed

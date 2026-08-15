@@ -8,12 +8,14 @@
 #include <freertos/task.h>
 #include <lvgl.h>
 #include <TouchWifiProvisioner.h>
+#include <WiFi.h>
 
 #include "ClaudeConfig.h"
 #include "ClaudeSetupServer.h"
 #include "ClaudeUsageClient.h"
 #include "OtaPassword.h"
 #include "UsageDashboard.h"
+#include "Version.h"
 
 using namespace ezt;
 
@@ -33,6 +35,23 @@ unsigned long lastPollMs = 0;
 bool dashboardReady = false;
 std::function<void(WebServer &)> pendingScreenshotHandler;
 String deviceIp;  // set once in onWifiConnected() - see setupUrls() below
+
+// Physical BOOT button, GPIO0 on every board this project targets (CYD,
+// D1 mini, CrowPanel7 all break it out the same way - it's the same pin
+// used to enter the ROM bootloader for flashing, active-low with its own
+// board-level pull-up). Same short-press/hold-to-reset pattern as the
+// Weather project's boot.button handling: a short press opens System
+// Info (see openSysInfoOverlay() below), holding it FACTORY_RESET_HOLD_MS
+// wipes both the WiFi credentials and the Claude account and reboots.
+constexpr int BOOT_BUTTON_PIN = 0;
+constexpr unsigned long FACTORY_RESET_HOLD_MS = 10000;
+
+lv_obj_t *sysInfoOverlay = nullptr;
+lv_obj_t *sysInfoIpVal = nullptr;
+lv_obj_t *sysInfoRssiVal = nullptr;
+lv_obj_t *sysInfoHeapVal = nullptr;
+lv_obj_t *sysInfoUptimeVal = nullptr;
+lv_obj_t *sysInfoAccountVal = nullptr;
 
 // True once the first successful fetch has happened - gates
 // tickLiveStatus()'s countdown/uptime display so it doesn't tick toward
@@ -258,6 +277,147 @@ void tickLiveStatus() {
   UsageDashboard::setLiveStatus(formatCountdown(), formatUptime(now / 1000));
 }
 
+// --- System Info overlay -------------------------------------------------
+// Reached via a short press of the physical BOOT button (see
+// pollBootButton() below) - not part of the normal touch UI, since a
+// device with a broken touch digitizer (see the earlier one-off "shop2"
+// build) can still reach diagnostics this way, and it doubles as a quick
+// way to check WiFi signal/heap/uptime without a browser or serial cable.
+// Same overlay pattern as openSettingsOverlay() above, deliberately left
+// scrollable (unlike the main dashboard's root) as a safety net in case
+// these rows ever don't fit CYD/D1 mini's 240px height the way the status
+// row briefly didn't - see the 2026-08-03 layout fix.
+
+void closeSysInfoOverlay() {
+  if (sysInfoOverlay) {
+    lv_obj_del(sysInfoOverlay);
+    sysInfoOverlay = nullptr;
+    sysInfoIpVal = sysInfoRssiVal = sysInfoHeapVal = sysInfoUptimeVal = sysInfoAccountVal = nullptr;
+  }
+}
+
+void onCloseSysInfoClicked(lv_event_t *e) { closeSysInfoOverlay(); }
+
+void renderSystemInfoValues() {
+  if (!sysInfoOverlay) return;
+
+  lv_label_set_text_fmt(sysInfoIpVal, "IP: %s", deviceIp.length() > 0 ? deviceIp.c_str() : "-");
+
+  if (WiFi.status() == WL_CONNECTED) {
+    lv_label_set_text_fmt(sysInfoRssiVal, "Wi-Fi signal: %d dBm", WiFi.RSSI());
+  } else {
+    lv_label_set_text(sysInfoRssiVal, "Wi-Fi signal: disconnected");
+  }
+
+  lv_label_set_text_fmt(sysInfoHeapVal, "Free heap: %u KB (min block %u KB)",
+                         (unsigned)(ESP.getFreeHeap() / 1024), (unsigned)(ESP.getMaxAllocHeap() / 1024));
+
+  lv_label_set_text_fmt(sysInfoUptimeVal, "Uptime: %s", formatUptime(millis() / 1000).c_str());
+
+  const char *acctStatus = !ClaudeConfig::isProvisioned() ? "Not configured"
+                            : ClaudeConfig::isUnlocked()  ? "Unlocked"
+                                                           : "Locked";
+  lv_label_set_text_fmt(sysInfoAccountVal, "Account: %s", acctStatus);
+}
+
+// Called every loop() iteration, throttled to ~1s - mirrors tickLiveStatus()
+// above. A no-op (single flag check) whenever the overlay isn't open.
+void tickSystemInfo() {
+  if (!sysInfoOverlay) return;
+  static unsigned long lastTickMs = 0;
+  unsigned long now = millis();
+  if (now - lastTickMs < 1000) return;
+  lastTickMs = now;
+  renderSystemInfoValues();
+}
+
+void openSysInfoOverlay() {
+  if (sysInfoOverlay) return;  // already open - a second short press is a harmless no-op
+
+  sysInfoOverlay = lv_obj_create(lv_scr_act());
+  lv_obj_add_flag(sysInfoOverlay, LV_OBJ_FLAG_IGNORE_LAYOUT);
+  lv_obj_set_size(sysInfoOverlay, lv_pct(100), lv_pct(100));
+  lv_obj_set_pos(sysInfoOverlay, 0, 0);
+  lv_obj_set_style_bg_color(sysInfoOverlay, lv_color_black(), 0);
+  lv_obj_set_style_bg_opa(sysInfoOverlay, LV_OPA_COVER, 0);
+  lv_obj_set_style_pad_all(sysInfoOverlay, 10, 0);
+  lv_obj_set_flex_flow(sysInfoOverlay, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_flex_align(sysInfoOverlay, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_row(sysInfoOverlay, 6, 0);
+
+  lv_obj_t *title = lv_label_create(sysInfoOverlay);
+  lv_obj_set_style_text_font(title, &lv_font_montserrat_24, 0);
+  lv_obj_set_style_text_color(title, lv_color_white(), 0);
+  lv_label_set_text(title, "System Info");
+  lv_obj_set_style_pad_bottom(title, 6, 0);
+
+  auto makeRow = [&]() -> lv_obj_t * {
+    lv_obj_t *row = lv_label_create(sysInfoOverlay);
+    lv_obj_set_style_text_color(row, lv_color_hex(0xcccccc), 0);
+    lv_obj_set_style_text_font(row, &lv_font_montserrat_14, 0);
+    return row;
+  };
+
+  lv_obj_t *fwRow = makeRow();
+  lv_label_set_text_fmt(fwRow, "Firmware: v%s", FW_VERSION);
+
+  sysInfoIpVal = makeRow();
+  sysInfoRssiVal = makeRow();
+  sysInfoHeapVal = makeRow();
+  sysInfoUptimeVal = makeRow();
+  sysInfoAccountVal = makeRow();
+
+  lv_obj_t *bootRow = makeRow();
+  lv_label_set_text_fmt(bootRow, "Last boot: %s", bootReason.c_str());
+
+  lv_obj_t *closeBtn = lv_btn_create(sysInfoOverlay);
+  lv_obj_set_size(closeBtn, lv_pct(80), LV_SIZE_CONTENT);
+  lv_obj_set_style_bg_opa(closeBtn, LV_OPA_20, 0);
+  lv_obj_set_style_bg_color(closeBtn, lv_color_white(), 0);
+  lv_obj_set_style_pad_top(closeBtn, 10, 0);
+  lv_obj_add_event_cb(closeBtn, onCloseSysInfoClicked, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t *closeLabel = lv_label_create(closeBtn);
+  lv_label_set_text(closeLabel, "Close");
+  lv_obj_set_style_text_color(closeLabel, lv_color_white(), 0);
+  lv_obj_center(closeLabel);
+
+  renderSystemInfoValues();  // populate immediately instead of waiting up to 1s for the first tick
+}
+
+// Wipes WiFi credentials *and* the Claude account, then reboots - the
+// on-device equivalent of the Settings overlay's "Forget Wi-Fi" +
+// "Reset Claude Account" buttons combined into one action, since a unit
+// whose touch is too broken to reach either button (see the "shop2"
+// one-off) still has a working BOOT button.
+void performFactoryReset() {
+  Serial.printf("[app] boot button held %lu ms, factory resetting\n", FACTORY_RESET_HOLD_MS);
+  ClaudeConfig::forget();
+  TouchWifiProvisioner::reset();
+  Serial.flush();
+  delay(100);
+  ESP.restart();
+}
+
+// Called every loop() iteration - digitalRead() is cheap enough not to need
+// its own throttle. Edge-triggers openSysInfoOverlay() on press, then
+// watches the same press for a long hold to fire performFactoryReset().
+void pollBootButton() {
+  static bool wasPressed = false;
+  static unsigned long pressedAtMs = 0;
+  static bool resetFired = false;
+
+  const bool pressed = digitalRead(BOOT_BUTTON_PIN) == LOW;  // active-low
+  if (pressed && !wasPressed) {
+    openSysInfoOverlay();
+    pressedAtMs = millis();
+    resetFired = false;
+  } else if (pressed && !resetFired && millis() - pressedAtMs >= FACTORY_RESET_HOLD_MS) {
+    resetFired = true;
+    performFactoryReset();
+  }
+  wasPressed = pressed;
+}
+
 // Drains a completed background fetch, if any, onto the dashboard. Called
 // every loop() iteration - cheap (a flag check) when nothing's ready.
 void checkFetchResult() {
@@ -350,6 +510,8 @@ void begin() {
   // whether the heap-fragmentation theory is the whole story.
   esp_log_level_set("*", ESP_LOG_WARN);
 
+  pinMode(BOOT_BUTTON_PIN, INPUT_PULLUP);
+
   // Pinned to core 0 - Arduino's setup()/loop() (and therefore
   // lv_timer_handler()) run as "loopTask" on core 1 by default, so this
   // keeps the network fetch fully off the UI's core.
@@ -414,6 +576,8 @@ void onWifiConnected(const String &ip) {
 void loop() {
   checkFetchResult();
   tickLiveStatus();
+  pollBootButton();
+  tickSystemInfo();
   TouchWifiProvisioner::loop();
   if (TouchWifiProvisioner::isConnected()) {
     events();  // services ezTime's background NTP re-sync scheduling
