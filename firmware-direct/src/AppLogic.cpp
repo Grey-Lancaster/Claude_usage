@@ -9,6 +9,7 @@
 #include <lvgl.h>
 #include <TouchWifiProvisioner.h>
 #include <WiFi.h>
+#include "lwip/tcpip.h"
 
 #include "ClaudeConfig.h"
 #include "ClaudeSetupServer.h"
@@ -85,6 +86,38 @@ String resetReasonText() {
   }
 }
 String bootReason;
+
+// 2026-08-15: two live serial captures (both full symbolicated
+// backtraces, see CHANGELOG.md) caught abort() firing inside ESP-IDF's
+// lock_init_generic (newlib/locks.c) - the actual source shows the only
+// abort there is "xQueueCreateMutex() returned NULL", i.e. a semaphore
+// allocation failed - reached via LWIP's own internal tcpip_thread
+// logging a routine mDNS UDP-packet message for the very first time.
+// newlib gives each FreeRTOS task its own lazily-created stdio lock on
+// first use - tcpip_thread had never logged anything before, so this was
+// its first-ever attempt, and free-heap logging (checkFetchResult()
+// below) showed the heap completely flat for 3h43m beforehand, ruling
+// out gradual fragmentation. Both crashes landed within seconds of a
+// fresh ClaudeUsageClient::fetch() WiFiClientSecure TLS handshake
+// starting - mbedTLS's large transient handshake buffers are exactly the
+// kind of momentary heap pressure that can starve an unrelated task's
+// small allocation for the split second it needs one. Muting mDNS's own
+// logging (see esp_log_level_set() in begin()) didn't stop the second
+// crash - same PC, same backtrace - most likely because that specific
+// log call is gated by a compile-time LOG_LOCAL_LEVEL rather than the
+// runtime level esp_log_level_set() controls, so it fires regardless.
+//
+// Fix: force tcpip_thread's first-ever libc/stdio call (and therefore
+// its lock's lazy init) to happen right here, scheduled via LWIP's own
+// tcpip_callback() so it runs *on* that thread - on the still-pristine
+// heap right after WiFi connects, long before the first TLS handshake
+// (called from onWifiConnected() below, before pollUsage(true)). Once
+// created, the lock is just reused forever after; this doesn't fix
+// TLS's transient heap pressure, only removes the one confirmed casualty
+// of it. printf(), not Serial.print() - Serial's HardwareSerial driver
+// writes the UART directly and never touches this lock at all; only
+// libc/ESP_LOGx output (through the console VFS) does.
+void tcpipThreadWarmupCb(void *) { printf("[lwip] tcpip_thread warmed up\n"); }
 
 // mDNS ("claudeusage.local") doesn't resolve on every network/device
 // (some phones, some routers with mDNS reflection disabled, etc.) -
@@ -525,6 +558,16 @@ void setScreenshotHandler(std::function<void(WebServer &)> handler) {
 void onWifiConnected(const String &ip) {
   Serial.printf("Wi-Fi connected, IP: %s\n", ip.c_str());
   deviceIp = ip;  // reconnects can rotate the DHCP lease - keep this current
+
+  // Only needs to happen once, ever - see tcpipThreadWarmupCb()'s comment.
+  // tcpip_thread is guaranteed running by this point (WiFi just connected),
+  // and nothing below has touched TLS yet.
+  static bool tcpipWarmedUp = false;
+  if (!tcpipWarmedUp) {
+    tcpipWarmedUp = true;
+    tcpip_callback(tcpipThreadWarmupCb, nullptr);
+  }
+
   // Blocks briefly (first connect only - already-synced time returns
   // immediately on reconnects) so the very first pollUsage() below
   // doesn't race ahead of NTP finishing. Without this, "resets in" shows

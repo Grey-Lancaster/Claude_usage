@@ -3,6 +3,27 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.40] - 2026-08-15
+
+### Fixed
+- Root-caused the CYD crash properly this time - v0.9.32's mDNS-log-mute
+  was a red herring: a second live serial capture caught an *identical*
+  backtrace (same PC, same call chain) after it, and free-heap logging
+  showed a completely flat heap for the 3h43m beforehand, ruling out
+  gradual fragmentation. Checked ESP-IDF's actual `locks.c` source: the
+  only abort in `lock_init_generic` is a failed semaphore allocation.
+  newlib lazily creates a separate stdio lock per FreeRTOS task on first
+  use - LWIP's own internal `tcpip_thread` had never logged anything
+  before, so mDNS's routine "got a UDP packet" debug log was its first
+  attempt ever. Both crashes landed within 2-3 seconds of a fresh
+  `WiFiClientSecure` TLS handshake starting - mbedTLS's large transient
+  handshake buffers created a momentary heap-pressure spike that starved
+  that one small, unrelated allocation. Fix: force `tcpip_thread`'s lock
+  into existence right after WiFi connects (via LWIP's own
+  `tcpip_callback()`, running a single `printf()` on that exact thread)
+  - on the still-pristine boot-time heap, long before the first TLS
+  handshake ever starts. Once created, the lock is reused forever.
+
 ## [0.9.36] - 2026-08-08
 
 ### Added
