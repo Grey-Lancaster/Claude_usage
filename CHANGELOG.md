@@ -3,6 +3,34 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.44] - 2026-08-17
+
+### Changed
+- Pulled in `TouchWifiProvisioner`'s connection-lifecycle Serial logging
+  (already written upstream in that library, just never rebuilt against -
+  the locally cached copy PlatformIO had pulled predated it). Logs
+  scan/rescan results, connect attempts, disconnects, every 15s reconnect
+  nudge, and reconnect success with SSID/IP/RSSI, all prefixed
+  `[TouchWifiProvisioner]`.
+
+### Investigating
+- A CYD unit crashed again on v0.9.40, but with a different signature
+  than the lock_init_generic abort that release fixed: `task_wdt: Task
+  watchdog got triggered ... IDLE0 (CPU 0)`, backtrace entirely inside
+  the WiFi driver's own task (`pm_tbtt_process` /
+  `wDev_DiscardFrame` / `pp_timer_do_process` / `ppTask`). The serial log
+  showed a 4+ hour silent gap overnight, spanning a ~3 AM router reboot -
+  `pollUsage()` only runs while `TouchWifiProvisioner::isConnected()` is
+  true, so the silence means the device genuinely saw itself as
+  disconnected that whole time, far longer than the router's actual
+  ~3-minute outage. The library's own reconnect loop nudges
+  `WiFi.reconnect()` every 15s indefinitely, so a multi-hour stall points
+  at the ESP32 WiFi driver itself getting stuck at a lower level, not a
+  library logic bug - shipping the reconnect-lifecycle logging above so
+  the next occurrence shows exactly when the link dropped and how the
+  reconnect attempts actually behaved, instead of inferring it from a
+  gap. Not fixed yet - no guessed fix shipped this release.
+
 ## [0.9.40] - 2026-08-15
 
 ### Fixed

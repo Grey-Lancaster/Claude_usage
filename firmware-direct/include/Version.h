@@ -5,4 +5,4 @@
 // screen (AppLogic.cpp, opened via a short press of the physical BOOT
 // button) shows what's actually running on the device, not just what the
 // OTA manifest claims it should be.
-#define FW_VERSION "0.9.40"
+#define FW_VERSION "0.9.44"
